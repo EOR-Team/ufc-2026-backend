@@ -1,0 +1,14 @@
+# local llm infra
+dspy
+litellm
+llama-cpp-python
+
+# online llm infra
+python-dotenv
+
+# backend server
+fastapi
+uvicorn
+
+# utils
+pydantic
