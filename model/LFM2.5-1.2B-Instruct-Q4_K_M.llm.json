@@ -1,0 +1,9 @@
+{
+    "n_gpu_layers": 0,
+    "seed": "default",
+    "n_ctx": 32768,
+    "n_threads": 4,
+    "flash_attn": true,
+    "chat_format": "chatml",
+    "verbose": false
+}

@@ -1,0 +1,17 @@
+# local llm infra
+dspy
+litellm
+# llama-cpp-python with CUDA 12 acceleration
+# Install with: CMAKE_ARGS="-DGGML_CUDA=ON" pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python-cu12/
+# Or use cu11 index for CUDA 11.x: https://abetlen.github.io/llama-cpp-python-cu11/
+llama-cpp-python
+
+# online llm infra
+python-dotenv
+
+# backend server
+fastapi
+uvicorn
+
+# utils
+pydantic
