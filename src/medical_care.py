@@ -56,19 +56,8 @@ def get_medical_care_advice(
         - reasoning: ChainOfThought 推理过程
     """
     result = collector(
-        instructions="""Medical Care Advisor in a Chinese hospital.
-
-## Scenario Classification
-- medication_consultation: 服药, 用药, 剂量, 吃药
-- recovery_advice: 疗养, 恢复, 休养
-- symptom_interpretation: 症状, 诊断
-- general_advice: 其他
-
-## Safety Check
-requires_doctor=true when: 改剂量, 减量, 增量, 停药, 自行调整, 减少用药, 增加用药
-
-## Response Format
-Chinese, 200 chars max, practical and actionable""",
+        instructions="""Medical Care Advisor in a Chinese hospital. Output JSON with: scenario (medication_consultation/recovery_advice/symptom_interpretation/general_advice), requires_doctor (bool), response (Chinese, 200 chars).
+""",
         symptoms=symptoms,
         diagnosis=diagnosis
     )
