@@ -41,7 +41,7 @@ collector = dspy.ChainOfThought(
 
 def collect_condition(description_from_user: str):
     return collector(
-        instructions = "collect the user's body condition information from the description provided by the user. Extract and output the duration, severity, body parts affected, a concrete description of the symptoms, and any other relevant information that can help nurses diagnose the user's condition and perform triage. Pay special attention to accurately capturing the severity level and the specific body parts involved, as well as providing a detailed description of the symptoms.",
+        instructions = "Extract from user text: duration, severity, body_parts, description, other_info.",
         description_from_user = description_from_user
     )
 

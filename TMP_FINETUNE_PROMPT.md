@@ -102,6 +102,6 @@ route_patcher 需保留更多结构，因其：
 对每个 node 做 prompt tuning 实验：
 - [x] medical_care ✅ (Llama: 125 chars 足够)
 - [x] clinic_selector ✅ (Llama: 174 chars 足够)
-- [ ] condition_collector
+- [x] condition_collector ✅ (Llama: 80 chars 足够)
 - [ ] requirement_collector
 - [ ] route_patcher
