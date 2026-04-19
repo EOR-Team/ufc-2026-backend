@@ -41,7 +41,7 @@ def collect_requirement(requirement_from_user: str):
         - reasoning: ChainOfThought 推理过程
     """
     result = collector(
-        instructions="从用户输入中提取需求，输出 JSON 格式的 requirements 列表，每个需求包含 'when'（时机/顺序）和 'what'（动作）。无需求时返回空列表。",
+        instructions = "Extract requirements (when, what) from user text. Output JSON list.",
         requirement_from_user=requirement_from_user
     )
 

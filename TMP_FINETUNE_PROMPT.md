@@ -103,5 +103,5 @@ route_patcher 需保留更多结构，因其：
 - [x] medical_care ✅ (Llama: 125 chars 足够)
 - [x] clinic_selector ✅ (Llama: 174 chars 足够)
 - [x] condition_collector ✅ (Llama: 80 chars 足够)
-- [ ] requirement_collector
+- [x] requirement_collector ✅ (Llama: 67 chars 足够)
 - [ ] route_patcher
