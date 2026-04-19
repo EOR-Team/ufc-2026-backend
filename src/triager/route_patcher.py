@@ -35,30 +35,30 @@ def _format_locations() -> str:
 
 
 class RoutePatcherSignature(dspy.Signature):
-    """使用 ChainOfThought 模式生成路线修改方案"""
+    """Generate route modification patches for hospital navigation (generation task).
+
+    Optimization notes (2026-04-19):
+    - Generation task: timing keywords are essential (现在, 给医生看病前, 拿完药之后, 最后)
+    - Output format (type/previous/this/next) must be clear but can be concise
+    - Minimal desc compression while preserving generation quality
+    """
 
     destination_clinic_id: str = dspy.InputField(
-        desc="the destination clinic ID to visit"
+        desc="target clinic ID"
     )
 
     requirement_summary: list[dict] = dspy.InputField(
-        desc='''list of user requirements, each with "when" (timing/sequence, e.g., "给医生看病前") and "what" (action, e.g., "去洗手间")'''
+        desc="list of {when: timing, what: action} requirements"
     )
 
     current_route: list[str] = dspy.InputField(
-        desc="current path as a list of location IDs, e.g., ['entrance', 'registration_center', 'surgery_clinic', 'payment_center', 'pharmacy', 'quit']"
+        desc="path as location IDs, e.g. ['entrance', 'registration_center', 'surgery_clinic']"
     )
 
     patches: list[dict] = dspy.OutputField(
-        desc='''list of patch objects, each with:
-- type: "insert" or "delete"
-- previous: location ID after which to make the modification
-- this: location ID to insert or delete
-- next: location ID before which to make the modification
-
-Example: [{"type": "insert", "previous": "entrance", "this": "toilet", "next": "registration_center"}]
-
-Output empty list [] if no modifications are needed.'''
+        desc='''list of patches: {type: "insert"|"delete", previous: loc, this: loc, next: loc}.
+Example: [{"type": "insert", "previous": "entrance", "this": "toilet", "next": "registration_center"}].
+Output [] if no modifications needed.'''
     )
 
 

@@ -238,9 +238,55 @@ class RequirementCollectorSignature(dspy.Signature):
 
 ---
 
+## route_patcher 优化实验
+
+**任务类型**: 生成任务（生成路线修改 patches JSON）
+
+### 实验设计
+
+| 版本 | desc 策略 | 通过率 | 测试时间 |
+|------|----------|--------|---------|
+| Baseline | 详细 desc (~661 chars) | 15/15 | ~61s |
+| 优化版 | 压缩 desc (~367 chars) | 15/15 | ~61s |
+
+### 关键发现
+
+1. **生成任务需要保留关键语义提示** - "Output [] if no modifications needed" 对 Deepseek 正确处理空修改至关重要
+2. **输出格式示例必须用真实值** - 错误示例（如用缩写 "reg" 代替 "registration_center"）会导致模型生成错误的 patches
+3. **44.5% desc 压缩可行** - 在保持测试通过的同时
+
+### 优化后的 Signature
+
+```python
+class RoutePatcherSignature(dspy.Signature):
+    """Generate route modification patches for hospital navigation (generation task)."""
+
+    destination_clinic_id: str = dspy.InputField(
+        desc="target clinic ID"
+    )
+
+    requirement_summary: list[dict] = dspy.InputField(
+        desc="list of {when: timing, what: action} requirements"
+    )
+
+    current_route: list[str] = dspy.InputField(
+        desc="path as location IDs, e.g. ['entrance', 'registration_center', 'surgery_clinic']"
+    )
+
+    patches: list[dict] = dspy.OutputField(
+        desc='''list of patches: {type: "insert"|"delete", previous: loc, this: loc, next: loc}.
+Example: [{"type": "insert", "previous": "entrance", "this": "toilet", "next": "registration_center"}].
+Output [] if no modifications needed.'''
+    )
+```
+
+**优化结果**: desc 从 ~661 chars 减少到 ~367 chars (44.5% 压缩)，测试通过率 15/15。
+
+---
+
 ## 待验证
 
 1. [x] condition_collector 优化验证 - **完成**
 2. [x] requirement_collector 应用类似优化 - **完成（19/19 通过）**
-3. [ ] route_patcher 优化验证
+3. [x] route_patcher 优化验证 - **完成（15/15 通过，44.5% 压缩）**
 4. [ ] 在 DeepSeek 等更大模型上测试 clinic_selector G 组
