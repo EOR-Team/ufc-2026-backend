@@ -203,9 +203,44 @@ class ConditionCollectorSignature(dspy.Signature):
 
 ---
 
+## requirement_collector 优化实验
+
+**任务类型**: 信息提取（when/what 结构）
+
+### 实验设计
+
+| 版本 | desc 策略 | 通过率 | 测试时间 |
+|------|----------|--------|---------|
+| Baseline | 详细 desc (~360 chars) | 19/19 | ~243s |
+| 优化版 | 极简 desc (~74 chars) | 19/19 | ~243s |
+
+### 关键发现
+
+1. **极简 desc 不影响信息提取任务** - 19/19 测试全部通过
+2. **desc 压缩约 79%** - 从 ~360 chars 减少到 ~74 chars
+
+### 优化后的 Signature
+
+```python
+class RequirementCollectorSignature(dspy.Signature):
+    """Collect user requirements for hospital route planning (information extraction task)."""
+
+    requirement_from_user: str = dspy.InputField(
+        desc="user requirement description"
+    )
+
+    requirements: str = dspy.OutputField(
+        desc="requirements as JSON with when and what keys"
+    )
+```
+
+**优化结果**: desc 从 ~360 chars 减少到 ~74 chars (79% 压缩)，测试通过率 19/19。
+
+---
+
 ## 待验证
 
 1. [x] condition_collector 优化验证 - **完成**
-2. [ ] requirement_collector 应用类似优化
+2. [x] requirement_collector 应用类似优化 - **完成（19/19 通过）**
 3. [ ] route_patcher 优化验证
 4. [ ] 在 DeepSeek 等更大模型上测试 clinic_selector G 组

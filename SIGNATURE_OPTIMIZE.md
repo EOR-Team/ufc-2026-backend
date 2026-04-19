@@ -233,9 +233,9 @@ class ClinicSelectorSignatureG(dspy.Signature):
 |------|---------|---------|------|
 | clinic_selector | 分类 | Literal + 完整 desc | 5/6，接近 baseline 6/6 |
 | condition_collector | 信息提取 | 极简 desc | **成功**：3x 加速，10/10 通过 |
+| requirement_collector | 信息提取 | 极简 desc | **成功**：79% desc 压缩，19/19 通过 |
 
 ### 待验证
 
-- [ ] requirement_collector 应用类似优化
 - [ ] route_patcher 优化验证
 - [ ] 在 DeepSeek 等更大模型上测试 clinic_selector G 组

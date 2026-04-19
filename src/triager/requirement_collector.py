@@ -12,14 +12,20 @@ import dspy
 
 
 class RequirementCollectorSignature(dspy.Signature):
-    """收集用户需求（when/what 结构）"""
+    """Collect user requirements for hospital route planning (information extraction task).
+
+    Optimization notes (2026-04-19):
+    - Based on Signature optimization experiments, minimal desc works better
+    - Information extraction tasks don't need detailed extraction rules
+    - Field names are sufficient for the model to understand what to extract
+    """
 
     requirement_from_user: str = dspy.InputField(
-        desc = "the user's requirement description in Chinese for hospital route planning"
+        desc="user requirement description"
     )
 
     requirements: str = dspy.OutputField(
-        desc = '''a valid JSON string containing a "requirements" list. Each requirement has "when" (timing/sequence, e.g., "给医生看病前", "拿完药之后") and "what" (action, e.g., "去洗手间", "原路返回"). If no requirements, return "{\"requirements\": []}". Example: "{\"requirements\": [{\"when\": \"给医生看病前\", \"what\": \"去洗手间\"}]}"'''
+        desc="requirements as JSON with when and what keys"
     )
 
 
