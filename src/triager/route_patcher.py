@@ -153,41 +153,7 @@ def patch_route(
     cot = RoutePatcherCot(RoutePatcherSignature)
 
     result = cot(
-        instructions=f"""You are a Route Patcher Agent in a SMART TRIAGE and ROUTING system designed for a **CHINESE** HOSPITAL ENVIRONMENT.
-
-## Your Task
-Generate patches to modify the original route to suit the user's destination clinic and requirements.
-
-## Available Locations
-{locations_info}
-
-## Modification Rules
-1. **"现在" in when**: Insert at the very beginning, right after "entrance"
-2. **"给医生看病前" in when**: Insert right before the destination clinic
-3. **"拿完药之后" in when**: Insert right after "pharmacy"
-4. **"最后" in when**: Insert right before "quit"
-5. **Clinic replacement**: If destination_clinic_id differs from the clinic in current route, replace it
-6. **Output all patches first, then the model will apply them**
-
-## Output Format
-You MUST output a JSON object with a "patches" field containing a list of patch objects.
-
-Each patch object must have:
-- type: "insert" or "delete"
-- previous: the location ID after which to make the modification
-- this: the location ID to insert or delete
-- next: the location ID before which to make the modification
-
-Example patch for inserting toilet before surgery_clinic:
-{{"type": "insert", "previous": "registration_center", "this": "toilet", "next": "surgery_clinic"}}
-
-If no modifications are needed, output: {{"patches": []}}
-
-## Important
-- Think step by step about what modifications are needed
-- Consider all requirements and generate the minimal set of patches
-- Delete operations are applied before insert operations
-- Output ONLY the JSON object, no additional text""",
+        instructions=f"""Route patcher in a Chinese hospital. Insert locations based on: "现在"(after entrance), "给医生看病前"(before clinic), "拿完药之后"(after pharmacy), "最后"(before quit). Output JSON: {{"patches": [{{"type": "insert"|"delete", "previous": loc, "this": loc, "next": loc}}]}}.""",
         destination_clinic_id=destination_clinic_id,
         requirement_summary=requirement_summary,
         current_route=origin_route
