@@ -11,6 +11,7 @@ from fastapi import FastAPI
 
 from src.logger import info, error
 from src.whisper_manager import whisper_manager
+from src.stt import router as stt_router
 
 
 @asynccontextmanager
@@ -27,6 +28,8 @@ app = FastAPI(
     title="UFC 2026 Backend",
     lifespan=lifespan,
 )
+
+app.include_router(stt_router, prefix="/stt", tags=["stt"])
 
 
 @app.get("/health")
