@@ -1,3 +1,5 @@
+openspec/
+
 # whisper.cpp (clone fresh: git clone https://github.com/ggerganov/whisper.cpp.git)
 whisper.cpp/
 
