@@ -12,6 +12,7 @@ python-dotenv
 # backend server
 fastapi
 uvicorn
+python-multipart
 
 # utils
 pydantic
