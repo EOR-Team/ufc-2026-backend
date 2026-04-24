@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from src.logger import info, error
 from src.whisper_manager import whisper_manager
 from src.stt import router as stt_router
+from src.tts import router as tts_router
 
 
 @asynccontextmanager
@@ -30,6 +31,7 @@ app = FastAPI(
 )
 
 app.include_router(stt_router, prefix="/stt", tags=["stt"])
+app.include_router(tts_router, prefix="/tts", tags=["tts"])
 
 
 @app.get("/health")
