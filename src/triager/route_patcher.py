@@ -35,30 +35,30 @@ def _format_locations() -> str:
 
 
 class RoutePatcherSignature(dspy.Signature):
-    """使用 ChainOfThought 模式生成路线修改方案"""
+    """Generate route modification patches for hospital navigation (generation task).
+
+    Optimization notes (2026-04-19):
+    - Generation task: timing keywords are essential (现在, 给医生看病前, 拿完药之后, 最后)
+    - Output format (type/previous/this/next) must be clear but can be concise
+    - Minimal desc compression while preserving generation quality
+    """
 
     destination_clinic_id: str = dspy.InputField(
-        desc="the destination clinic ID to visit"
+        desc="target clinic ID"
     )
 
     requirement_summary: list[dict] = dspy.InputField(
-        desc='''list of user requirements, each with "when" (timing/sequence, e.g., "给医生看病前") and "what" (action, e.g., "去洗手间")'''
+        desc="list of {when: timing, what: action} requirements"
     )
 
     current_route: list[str] = dspy.InputField(
-        desc="current path as a list of location IDs, e.g., ['entrance', 'registration_center', 'surgery_clinic', 'payment_center', 'pharmacy', 'quit']"
+        desc="path as location IDs, e.g. ['entrance', 'registration_center', 'surgery_clinic']"
     )
 
     patches: list[dict] = dspy.OutputField(
-        desc='''list of patch objects, each with:
-- type: "insert" or "delete"
-- previous: location ID after which to make the modification
-- this: location ID to insert or delete
-- next: location ID before which to make the modification
-
-Example: [{"type": "insert", "previous": "entrance", "this": "toilet", "next": "registration_center"}]
-
-Output empty list [] if no modifications are needed.'''
+        desc='''list of patches: {type: "insert"|"delete", previous: loc, this: loc, next: loc}.
+Example: [{"type": "insert", "previous": "entrance", "this": "toilet", "next": "registration_center"}].
+Output [] if no modifications needed.'''
     )
 
 
@@ -153,41 +153,7 @@ def patch_route(
     cot = RoutePatcherCot(RoutePatcherSignature)
 
     result = cot(
-        instructions=f"""You are a Route Patcher Agent in a SMART TRIAGE and ROUTING system designed for a **CHINESE** HOSPITAL ENVIRONMENT.
-
-## Your Task
-Generate patches to modify the original route to suit the user's destination clinic and requirements.
-
-## Available Locations
-{locations_info}
-
-## Modification Rules
-1. **"现在" in when**: Insert at the very beginning, right after "entrance"
-2. **"给医生看病前" in when**: Insert right before the destination clinic
-3. **"拿完药之后" in when**: Insert right after "pharmacy"
-4. **"最后" in when**: Insert right before "quit"
-5. **Clinic replacement**: If destination_clinic_id differs from the clinic in current route, replace it
-6. **Output all patches first, then the model will apply them**
-
-## Output Format
-You MUST output a JSON object with a "patches" field containing a list of patch objects.
-
-Each patch object must have:
-- type: "insert" or "delete"
-- previous: the location ID after which to make the modification
-- this: the location ID to insert or delete
-- next: the location ID before which to make the modification
-
-Example patch for inserting toilet before surgery_clinic:
-{{"type": "insert", "previous": "registration_center", "this": "toilet", "next": "surgery_clinic"}}
-
-If no modifications are needed, output: {{"patches": []}}
-
-## Important
-- Think step by step about what modifications are needed
-- Consider all requirements and generate the minimal set of patches
-- Delete operations are applied before insert operations
-- Output ONLY the JSON object, no additional text""",
+        instructions=f"""Route patcher in a Chinese hospital. Insert locations based on: "现在"(after entrance), "给医生看病前"(before clinic), "拿完药之后"(after pharmacy), "最后"(before quit). Output JSON: {{"patches": [{{"type": "insert"|"delete", "previous": loc, "this": loc, "next": loc}}]}}.""",
         destination_clinic_id=destination_clinic_id,
         requirement_summary=requirement_summary,
         current_route=origin_route
