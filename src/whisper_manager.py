@@ -28,7 +28,7 @@ class WhisperServerManager:
             "WHISPER_MODEL_PATH",
             "./whisper.cpp/models/ggml-tiny-q50.bin"
         )
-        self.port: str = os.environ.get("WHISPER_SERVER_PORT", "8080")
+        self.port: str = os.environ.get("WHISPER_SERVER_PORT", "9000")
         self.language: str = os.environ.get("WHISPER_SERVER_LANGUAGE", "zh")
         self.host: str = "127.0.0.1"
 

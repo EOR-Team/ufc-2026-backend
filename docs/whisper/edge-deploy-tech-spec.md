@@ -45,7 +45,7 @@
 │                                                             │
 │   ┌─────────────┐      ┌─────────────────────────────────┐ │
 │   │  FastAPI    │      │  whisper-server (whisper.cpp)    │ │
-│   │  Backend    │ ────►│  127.0.0.1:8080                 │ │
+│   │  Backend    │ ────►│  127.0.0.1:9000                 │ │
 │   │  (本项目)   │      │                                 │ │
 │   │             │◄──── │  tiny-q5_0 (ggml 模型)          │ │
 │   └──────┬──────┘      │  ffmpeg 预处理                   │ │
@@ -67,7 +67,7 @@
 ### 健康检查
 
 ```
-GET http://127.0.0.1:8080/health
+GET http://127.0.0.1:9000/health
 ```
 
 响应示例：
@@ -78,7 +78,7 @@ GET http://127.0.0.1:8080/health
 ### 语音转文字
 
 ```
-POST http://127.0.0.1:8080/inference
+POST http://127.0.0.1:9000/inference
 Content-Type: multipart/form-data
 
 file: <音频文件>
@@ -111,8 +111,8 @@ FastAPI 与 whisper-server 部署在**同一台 Pi** 上：
 
 | 项目 | 值 |
 |------|----|
-| whisper-server 绑定地址 | `127.0.0.1:8080`（仅本地访问） |
-| FastAPI 调用地址 | `http://127.0.0.1:8080/inference` |
+| whisper-server 绑定地址 | `127.0.0.1:9000`（仅本地访问） |
+| FastAPI 调用地址 | `http://127.0.0.1:9000/inference` |
 | 启动方式 | **手动** — FastAPI 启动时通过 `subprocess` 拉起 whisper-server，FastAPI 关闭时一并终止 |
 | 进程管理 | FastAPI 使用 `subprocess.Popen` 管理 whisper-server 生命周期，**不依赖 systemd** |
 | 自动重启 | ❌ 不需要 |
@@ -137,7 +137,7 @@ FastAPI 与 whisper-server 部署在**同一台 Pi** 上：
          │ ffmpeg 转换为 16kHz WAV
          ▼
 ┌─────────────────┐
-│ whisper-server   │  ←  POST http://127.0.0.1:8080/inference
+│ whisper-server   │  ←  POST http://127.0.0.1:9000/inference
 │ (whisper.cpp)   │  ←  返回 JSON { "text": "..." }
 └────────┬────────┘
          │

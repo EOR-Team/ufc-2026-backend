@@ -63,7 +63,7 @@ bash ./models/download-ggml-model.sh tiny
 ```bash
 ./build/bin/whisper-server \
   -m ./models/ggml-tiny-q50.bin \
-  --port 8080 \
+  --port 9000 \
   --language zh \
   --host 127.0.0.1
 ```
@@ -122,7 +122,7 @@ WSL2 当前环境无 sudo 权限，无法安装 `ffmpeg`。whisper.cpp 核心构
 ### Health Check
 
 ```bash
-curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:9000/health
 # {"status":"ok"}
 ```
 
