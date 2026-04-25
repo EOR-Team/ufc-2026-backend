@@ -8,6 +8,8 @@
 
 import dspy
 
+from src import logger
+
 
 class ClinicSelectorSignature(dspy.Signature):
     """根据患者症状选择合适的诊室"""
@@ -48,7 +50,7 @@ def select_clinic(
     severity: str,
     description: str,
     other_relevant_info: list[str]
-) -> tuple[str, object]:
+) -> str:
     """
     根据患者症状选择合适的诊室。
 
@@ -60,11 +62,10 @@ def select_clinic(
         other_relevant_info: 其他相关信息（如年龄、病史等）
 
     Returns:
-        tuple: (clinic_selection, reasoning)
-        - clinic_selection: 选择的诊室 ID
-        - reasoning: ChainOfThought 推理过程
+        str: 选择的诊室 ID
     """
-    result = collector(
+    
+    resp = collector(
         # [STEP 3] 极限压缩
         instructions="Clinic selector in a Chinese hospital. Select: pediatric_clinic (child under 14), emergency_clinic (severe), surgery_clinic (needs operation), internal_clinic (default/mild).",
         body_parts=body_parts,
@@ -74,7 +75,11 @@ def select_clinic(
         other_relevant_info=other_relevant_info
     )
 
-    return result.clinic_selection, result
+    logger.info(f"[ClinicSelector] Received symptoms: body_parts={body_parts}, duration={duration}, severity={severity}, description={description}, other_info={other_relevant_info}")
+    logger.info(f"[ClinicSelector] Reasoning: {resp.reasoning}")
+    logger.info(f"[ClinicSelector] Selected clinic: {resp.clinic_selection}")
+
+    return resp["clinic_selection"]
 
 
 __all__ = [

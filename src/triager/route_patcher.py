@@ -6,8 +6,12 @@
 #
 # 重构自 EOR-Team/ufc-2026/src/smart_triager/triager/route_patcher.py
 
-import dspy
 from typing import Optional
+
+import dspy
+
+from src import logger
+
 
 # 可用的位置节点定义
 AVAILABLE_LOCATIONS = {
@@ -123,7 +127,7 @@ def patch_route(
     destination_clinic_id: str,
     requirement_summary: list[dict],
     origin_route: Optional[list[str]] = None
-) -> tuple[list[str], list[dict]]:
+) -> list[str]:
     """
     根据用户需求生成路线修改方案并应用。
 
@@ -133,10 +137,9 @@ def patch_route(
         origin_route: 原路线，默认为基于 surgery_clinic 的标准路线
 
     Returns:
-        tuple: (final_route, patches)
-        - final_route: 修改后的最终路线
-        - patches: 生成的修改方案列表
+        list[str]: 修改后的路线
     """
+    
     if origin_route is None:
         origin_route = [
             "entrance",
@@ -165,7 +168,12 @@ def patch_route(
     # 应用 patches 到路线
     final_route = apply_patches(origin_route, patches)
 
-    return final_route, patches
+    logger.info(f"[RoutePatcher] Destination: {destination_clinic_id}, Requirements: {requirement_summary}")
+    logger.info(f"[RoutePatcher] Reasoning: {result.reasoning}")
+    logger.info(f"[RoutePatcher] Generated patches: {patches}")
+    logger.info(f"[RoutePatcher] Final route: {final_route}")
+
+    return final_route
 
 
 __all__ = [

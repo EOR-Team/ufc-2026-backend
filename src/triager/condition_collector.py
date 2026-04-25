@@ -8,6 +8,8 @@
 
 import dspy
 
+from src import logger
+
 
 class ConditionCollectorSignature(dspy.Signature):
     """Collect user physical condition info (information extraction task).
@@ -47,11 +49,32 @@ collector = dspy.ChainOfThought(
 )
 
 
-def collect_condition(description_from_user: str):
-    return collector(
+def collect_condition(description_from_user: str) -> dict:
+    """Collect user physical condition information.
+
+    Args:
+        description_from_user: 用户的症状描述（中文）
+    
+    Returns:
+        dict: 包含症状信息的字典，包括 duration, severity, body_parts, description, other_relevant_info 字段
+    """
+
+    resp = collector(
         instructions="Extract from user text: duration, severity, body_parts, description, other_info.",
         description_from_user=description_from_user
     )
+
+    logger.info(f"[ConditionCollector] Receive user description: {description_from_user}")
+    logger.info(f"[ConditionCollector] Reasoning: {resp.reasoning}")
+    logger.info(f"[ConditionCollector] Extracted condition: duration={resp.duration}, severity={resp.severity}, body_parts={resp.body_parts}, description={resp.description}, other_info={resp.other_relevant_info}")
+
+    return {
+        "duration": resp.duration,
+        "severity": resp.severity,
+        "body_parts": resp.body_parts,
+        "description": resp.description,
+        "other_relevant_info": resp.other_relevant_info
+    }
 
 
 __all__ = [

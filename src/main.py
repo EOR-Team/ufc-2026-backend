@@ -7,12 +7,19 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+import dspy
 from fastapi import FastAPI
 
 from src.logger import info, error
 from src.whisper_manager import whisper_manager
 from src.stt import router as stt_router
 from src.tts import router as tts_router
+from src.triager.routing import triager_router
+from src.llm import deepseek
+
+
+# set default LLM to deepseek
+dspy.configure(lm=deepseek.DeepseekLM())
 
 
 @asynccontextmanager
@@ -32,6 +39,7 @@ app = FastAPI(
 
 app.include_router(stt_router, prefix="/stt", tags=["stt"])
 app.include_router(tts_router, prefix="/tts", tags=["tts"])
+app.include_router(triager_router, tags=["triager"])
 
 
 @app.get("/health")
