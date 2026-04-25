@@ -10,6 +10,8 @@
 import json
 import dspy
 
+from src import logger
+
 
 class RequirementCollectorSignature(dspy.Signature):
     """Collect user requirements for hospital route planning (information extraction task).
@@ -34,7 +36,7 @@ collector = dspy.ChainOfThought(
 )
 
 
-def collect_requirement(requirement_from_user: str):
+def collect_requirement(requirement_from_user: str) -> list[dict[str, str]]:
     """
     收集用户需求。
 
@@ -42,10 +44,9 @@ def collect_requirement(requirement_from_user: str):
         requirement_from_user: 用户的需求描述（中文）
 
     Returns:
-        tuple: (requirements_list, reasoning)
-        - requirements_list: list of dicts with 'when' and 'what' keys
-        - reasoning: ChainOfThought 推理过程
+        requirements_list: 解析后的需求列表，每个需求包含 when 和 what 字段
     """
+
     result = collector(
         instructions = "Extract requirements (when, what) from user text. Output JSON list.",
         requirement_from_user=requirement_from_user
@@ -70,9 +71,11 @@ def collect_requirement(requirement_from_user: str):
                 requirements_list = data.get("requirements", [])
         except (json.JSONDecodeError, AttributeError):
             requirements_list = []
+        
+    logger.info(f"[RequirementCollector] Receive user requirement: {requirement_from_user}")
+    logger.info(f"[RequirementCollector] Extracted requirements: {requirements_list}")
 
-    return requirements_list, result
-
+    return requirements_list
 
 __all__ = [
     "collect_requirement",
