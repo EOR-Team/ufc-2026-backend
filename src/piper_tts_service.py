@@ -47,7 +47,7 @@ class PiperTTSService:
     def synthesize(
         self,
         text: str,
-        output_path: str,
+        output_path: str | None = None,
         length_scale: float = 1.0,
     ) -> dict[str, Any]:
         """
@@ -55,7 +55,7 @@ class PiperTTSService:
 
         Args:
             text: Text to synthesize
-            output_path: Path to write WAV file
+            output_path: Path to write WAV file (auto-generated if None)
             length_scale: Speech rate (higher = slower, default 1.0)
 
         Returns:
@@ -64,6 +64,10 @@ class PiperTTSService:
         # Validate text
         if not text or not text.strip():
             return {"success": False, "error": "text is required"}
+
+        # Use fixed output path
+        if output_path is None:
+            output_path = os.path.join(self._output_dir, "tts.wav")
 
         # Ensure output directory exists
         self._ensure_output_dir(output_path)
