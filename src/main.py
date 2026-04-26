@@ -9,6 +9,8 @@ from typing import AsyncGenerator
 
 import dspy
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from src.logger import info, error
 from src.whisper_manager import whisper_manager
@@ -37,6 +39,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(stt_router, prefix="/stt", tags=["stt"])
 app.include_router(tts_router, prefix="/tts", tags=["tts"])
 app.include_router(triager_router, tags=["triager"])
@@ -56,6 +66,17 @@ def health_check() -> dict:
 def root() -> dict:
     """Root endpoint."""
     return {"message": "UFC 2026 Backend"}
+
+
+@app.get("/get_newest_audio")
+def get_newest_audio() -> FileResponse:
+    """Return the newest TTS audio file."""
+    from src.utils import ROOT_DIR
+    return FileResponse(
+        path=ROOT_DIR / "outputs/tts/tts.wav",
+        media_type="audio/wav",
+        filename="tts.wav"
+    )
 
 
 if __name__ == "__main__":
