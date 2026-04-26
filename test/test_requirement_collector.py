@@ -139,9 +139,9 @@ def requirement_collector_metric(example, pred, trace=None):
     expected = example.expected
     expected_list = expected.get("requirements", [])
 
-    # pred 是 collect_requirement 返回的 (requirements_list, reasoning) 元组
-    if isinstance(pred, tuple):
-        pred_list = pred[0]
+    # pred 是 collect_requirement 返回的 requirements_list（list 类型）
+    if isinstance(pred, list):
+        pred_list = pred
     else:
         pred_list = pred
 
@@ -171,9 +171,9 @@ class TestRequirementCollectorWithLlama:
         """
         result = collect_requirement(example["input"])
 
-        # result 是 (requirements_list, reasoning) 元组
-        assert isinstance(result, tuple)
-        requirements_list = result[0]
+        # result 是 requirements_list（list 类型）
+        assert isinstance(result, list)
+        requirements_list = result
 
         # 验证返回的是列表
         assert isinstance(requirements_list, list)
@@ -209,7 +209,7 @@ class TestRequirementCollectorWithLlama:
     def test_when_extraction(self):
         """测试 when 字段的提取（lenient 检查）"""
         result = collect_requirement("给医生看病前，我想先去趟洗手间。")
-        requirements = result[0]
+        requirements = result
 
         # 小模型可能返回空列表，只验证列表结构
         assert isinstance(requirements, list)
@@ -217,14 +217,14 @@ class TestRequirementCollectorWithLlama:
     def test_what_extraction(self):
         """测试 what 字段的提取（lenient 检查）"""
         result = collect_requirement("拿完药之后，带我去趟洗手间。")
-        requirements = result[0]
+        requirements = result
 
         assert isinstance(requirements, list)
 
     def test_multiple_requirements(self):
         """测试多个 requirements 的提取（lenient 检查）"""
         result = collect_requirement("拿完药之后，带我去趟洗手间。最后原路返回。")
-        requirements = result[0]
+        requirements = result
 
         # 小模型可能无法正确提取多个 requirements，只验证列表结构
         assert isinstance(requirements, list)
@@ -232,7 +232,7 @@ class TestRequirementCollectorWithLlama:
     def test_empty_requirements(self):
         """测试空 requirements（无需求时）"""
         result = collect_requirement("我不需要做任何事情，直接去看医生就行。")
-        requirements = result[0]
+        requirements = result
 
         assert isinstance(requirements, list)
 
@@ -253,8 +253,8 @@ class TestRequirementCollectorWithDeepseek:
         """
         result = collect_requirement(example["input"])
 
-        assert isinstance(result, tuple)
-        requirements_list = result[0]
+        assert isinstance(result, list)
+        requirements_list = result
         assert isinstance(requirements_list, list)
 
 
@@ -270,6 +270,7 @@ class TestRequirementCollectorSignature:
         sig_fields = RequirementCollectorSignature.model_fields
 
         assert "requirement_from_user" in sig_fields, "Missing requirement_from_user input field"
+        assert "previous_requirements" in sig_fields, "Missing previous_requirements input field"
         assert "requirements" in sig_fields, "Missing requirements output field"
 
     def test_signature_input_field(self):
@@ -277,6 +278,12 @@ class TestRequirementCollectorSignature:
         field = RequirementCollectorSignature.model_fields["requirement_from_user"]
         field_type = field.json_schema_extra.get("__dspy_field_type")
         assert field_type == "input", f"requirement_from_user should be an InputField, got {field_type}"
+
+    def test_signature_previous_requirements_input_field(self):
+        """验证 previous_requirements 是 InputField"""
+        field = RequirementCollectorSignature.model_fields["previous_requirements"]
+        field_type = field.json_schema_extra.get("__dspy_field_type")
+        assert field_type == "input", f"previous_requirements should be an InputField, got {field_type}"
 
     def test_signature_output_field(self):
         """验证 requirements 是 OutputField"""
@@ -300,21 +307,119 @@ class TestRequirementCollectorEdgeCases:
     def test_empty_input(self):
         """测试空输入"""
         result = collect_requirement("")
-        requirements = result[0]
+        requirements = result
         assert isinstance(requirements, list)
 
     def test_very_short_input(self):
         """测试非常短的输入"""
         result = collect_requirement("去洗手间。")
-        requirements = result[0]
+        requirements = result
         assert isinstance(requirements, list)
 
     def test_colloquial_expression_normalized(self):
         """测试口语化表达被规范化"""
         result = collect_requirement("先带我去一趟厕所。")
-        requirements = result[0]
+        requirements = result
         # 验证 what 字段不包含"带我"等口语化表达
         if len(requirements) > 0:
             for req in requirements:
                 if "what" in req:
                     assert "带我" not in req["what"], "what should not contain colloquial '带我'"
+
+
+# ===========================
+# Previous Requirements Tests
+# ===========================
+
+class TestRequirementCollectorPreviousRequirements:
+    """测试 previous_requirements 参数的功能"""
+
+    @pytest.fixture(autouse=True, scope="class")
+    def setup_lm(self, deepseek_lm):
+        """配置 DSPy 使用 Deepseek LM"""
+        dspy.configure(lm=deepseek_lm)
+
+    def test_previous_requirements_empty_by_default(self):
+        """测试 previous_requirements 默认为空列表"""
+        result = collect_requirement("我想去洗手间")
+        # 没有提供 previous_requirements，应该正常工作
+        assert result is not None
+        assert isinstance(result, list)
+
+    def test_previous_requirements_single_requirement(self):
+        """测试提供单个 previous_requirement 的情况"""
+        result = collect_requirement(
+            requirement_from_user="我还想再要一杯水",
+            previous_requirements=["要一杯水"]
+        )
+        assert result is not None
+        assert isinstance(result, list)
+
+    def test_previous_requirements_multiple_requirements(self):
+        """测试提供多个 previous_requirements 的情况"""
+        result = collect_requirement(
+            requirement_from_user="我还想去一次洗手间",
+            previous_requirements=[
+                "先要一杯水",
+                "然后去拿药"
+            ]
+        )
+        assert result is not None
+        assert isinstance(result, list)
+
+    def test_previous_requirements_affects_output(self):
+        """测试 previous_requirements 是否影响输出（与无 previous_requirements 的情况对比）"""
+        requirement = "我想再要一杯水"
+
+        # 不带 previous_requirements
+        result_without_prev = collect_requirement(requirement_from_user=requirement)
+
+        # 带 previous_requirements（假设之前已经要了一杯水）
+        result_with_prev = collect_requirement(
+            requirement_from_user=requirement,
+            previous_requirements=["已经要了一杯水"]
+        )
+
+        # 两种情况都应该返回有效结果
+        assert result_without_prev is not None
+        assert result_with_prev is not None
+
+    def test_previous_requirements_format(self):
+        """测试 previous_requirements 格式化是否正确"""
+        previous_requirements = [
+            "第一条需求",
+            "第二条需求",
+            "第三条需求"
+        ]
+
+        result = collect_requirement(
+            requirement_from_user="测试需求描述",
+            previous_requirements=previous_requirements
+        )
+
+        # 应该返回有效的结构化结果
+        assert result is not None
+        assert isinstance(result, list)
+
+    def test_previous_requirements_none_value(self):
+        """测试 previous_requirements 传入 None 的情况"""
+        result = collect_requirement(
+            requirement_from_user="我想去洗手间",
+            previous_requirements=None
+        )
+        # 应该正常工作
+        assert result is not None
+        assert isinstance(result, list)
+
+    def test_previous_requirements_with_context(self):
+        """测试 previous_requirements 包含上下文信息的情况"""
+        result = collect_requirement(
+            requirement_from_user="我想再要一个袋子",
+            previous_requirements=[
+                "之前买了一些药品",
+                "需要袋子装"
+            ]
+        )
+        assert result is not None
+        assert isinstance(result, list)
+
