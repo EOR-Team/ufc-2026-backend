@@ -88,7 +88,7 @@ def transcribe_audio(audio_path: str) -> str:
 
     try:
         with open(audio_path, "rb") as f:
-            files = {"audio": f}
+            files = {"file": f}
             resp = requests.post(url, files=files, timeout=30)
     except requests.RequestException as e:
         raise TranscriptionError(f"whisper inference failed: {e}")
