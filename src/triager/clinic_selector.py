@@ -11,6 +11,15 @@ import dspy
 from src import logger
 
 
+DEFAULT_CLINIC_ID = "emergency_clinic"
+VALID_CLINIC_IDS = {
+    "emergency_clinic",
+    "surgery_clinic",
+    "internal_clinic",
+    "pediatric_clinic",
+}
+
+
 class ClinicSelectorSignature(dspy.Signature):
     """根据患者症状选择合适的诊室"""
 
@@ -64,22 +73,32 @@ def select_clinic(
     Returns:
         str: 选择的诊室 ID
     """
-    
-    resp = collector(
-        # [STEP 3] 极限压缩
-        instructions="Clinic selector in a Chinese hospital. Select: pediatric_clinic (child under 14), emergency_clinic (severe), surgery_clinic (needs operation), internal_clinic (default/mild).",
-        body_parts=body_parts,
-        duration=duration,
-        severity=severity,
-        description=description,
-        other_relevant_info=other_relevant_info
-    )
 
-    logger.info(f"[ClinicSelector] Received symptoms: body_parts={body_parts}, duration={duration}, severity={severity}, description={description}, other_info={other_relevant_info}")
-    logger.info(f"[ClinicSelector] Reasoning: {resp.reasoning}")
-    logger.info(f"[ClinicSelector] Selected clinic: {resp.clinic_selection}")
+    try:
+        resp = collector(
+            # [STEP 3] 极限压缩
+            instructions="Clinic selector in a Chinese hospital. Select: pediatric_clinic (child under 14), emergency_clinic (severe), surgery_clinic (needs operation), internal_clinic (default/mild).",
+            body_parts=body_parts,
+            duration=duration,
+            severity=severity,
+            description=description,
+            other_relevant_info=other_relevant_info
+        )
 
-    return resp["clinic_selection"]
+        clinic_selection = resp["clinic_selection"] if isinstance(resp, dict) else getattr(resp, "clinic_selection", DEFAULT_CLINIC_ID)
+        if clinic_selection not in VALID_CLINIC_IDS:
+            clinic_selection = DEFAULT_CLINIC_ID
+
+        reasoning = getattr(resp, "reasoning", None)
+
+        logger.info(f"[ClinicSelector] Received symptoms: body_parts={body_parts}, duration={duration}, severity={severity}, description={description}, other_info={other_relevant_info}")
+        logger.info(f"[ClinicSelector] Reasoning: {reasoning}")
+        logger.info(f"[ClinicSelector] Selected clinic: {clinic_selection}")
+
+        return clinic_selection
+    except Exception as e:
+        logger.error(f"[ClinicSelector] Fallback to default clinic due to error: {e}", exc_info=True)
+        return DEFAULT_CLINIC_ID
 
 
 __all__ = [

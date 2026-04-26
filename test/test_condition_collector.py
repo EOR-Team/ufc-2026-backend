@@ -126,13 +126,20 @@ def condition_collector_metric(example, pred, trace=None):
     """
     expected = example.expected
 
+    # pred 可以是 dict 或带属性的对象，统一转为 dict 访问
+    pred_body_parts = pred["body_parts"] if isinstance(pred, dict) else pred.body_parts
+    pred_severity = pred["severity"] if isinstance(pred, dict) else pred.severity
+    pred_duration = pred["duration"] if isinstance(pred, dict) else pred.duration
+    pred_description = pred["description"] if isinstance(pred, dict) else pred.description
+    pred_other_relevant_info = pred["other_relevant_info"] if isinstance(pred, dict) else pred.other_relevant_info
+
     checks = {
-        "body_parts": validate_field(pred.body_parts, expected["body_parts"], "body_parts"),
-        "severity": validate_field(pred.severity, expected["severity"], "severity"),
-        "duration": validate_field(pred.duration, expected["duration"], "duration"),
-        "description": validate_field(pred.description, expected["description"], "description"),
+        "body_parts": validate_field(pred_body_parts, expected["body_parts"], "body_parts"),
+        "severity": validate_field(pred_severity, expected["severity"], "severity"),
+        "duration": validate_field(pred_duration, expected["duration"], "duration"),
+        "description": validate_field(pred_description, expected["description"], "description"),
         "other_relevant_info": validate_field(
-            pred.other_relevant_info, expected["other_relevant_info"], "other_relevant_info"
+            pred_other_relevant_info, expected["other_relevant_info"], "other_relevant_info"
         ),
     }
 
@@ -162,19 +169,19 @@ class TestConditionCollectorWithLlama:
         """
         result = collect_condition(example["input"])
 
-        # 验证所有字段都存在且为字符串
-        assert result.body_parts is not None and isinstance(result.body_parts, str)
-        assert result.severity is not None and isinstance(result.severity, str)
-        assert result.duration is not None and isinstance(result.duration, str)
-        assert result.description is not None and isinstance(result.description, str)
-        assert result.other_relevant_info is not None and isinstance(result.other_relevant_info, list)
+        # 验证所有字段都存在且为正确类型（返回的是 dict）
+        assert result["body_parts"] is not None and isinstance(result["body_parts"], str)
+        assert result["severity"] is not None and isinstance(result["severity"], str)
+        assert result["duration"] is not None and isinstance(result["duration"], str)
+        assert result["description"] is not None and isinstance(result["description"], str)
+        assert result["other_relevant_info"] is not None and isinstance(result["other_relevant_info"], list)
 
         # body_parts 不应为空（除非明确没有提及身体部位）
         # severity 不应为空
         # description 不应为空
-        assert len(result.body_parts.strip()) > 0, "body_parts should not be empty"
-        assert len(result.severity.strip()) > 0, "severity should not be empty"
-        assert len(result.description.strip()) > 0, "description should not be empty"
+        assert len(result["body_parts"].strip()) > 0, "body_parts should not be empty"
+        assert len(result["severity"].strip()) > 0, "severity should not be empty"
+        assert len(result["description"].strip()) > 0, "description should not be empty"
 
     def test_metric_on_all_examples(self):
         """使用 DSPy Evaluate 模式测试所有示例的结构化输出"""
@@ -202,28 +209,28 @@ class TestConditionCollectorWithLlama:
         """测试 duration 字段的提取（ lenient 检查）"""
         result = collect_condition("我头疼两天了，程度还算中等。")
         # duration 可以是从输入中提取或模型推断
-        assert result.duration is not None and isinstance(result.duration, str)
+        assert result["duration"] is not None and isinstance(result["duration"], str)
 
         result = collect_condition("我肚子从半个小时前一直疼到现在，很难受。")
-        assert result.duration is not None and isinstance(result.duration, str)
+        assert result["duration"] is not None and isinstance(result["duration"], str)
 
     def test_body_parts_extraction(self):
         """测试 body_parts 字段的提取"""
         result = collect_condition("我的脚有点疼。")
-        assert "脚" in result.body_parts or len(result.body_parts) > 0
+        assert "脚" in result["body_parts"] or len(result["body_parts"]) > 0
 
         result = collect_condition("我头疼两天了，程度还算中等。")
-        assert "头" in result.body_parts or len(result.body_parts) > 0
+        assert "头" in result["body_parts"] or len(result["body_parts"]) > 0
 
     def test_severity_extraction(self):
         """测试 severity 字段的提取"""
         result = collect_condition("我的脚有点疼。")
-        assert result.severity is not None and len(result.severity) > 0
+        assert result["severity"] is not None and len(result["severity"]) > 0
 
     def test_description_extraction(self):
         """测试 description 字段的提取"""
         result = collect_condition("我头疼两天了，程度还算中等。")
-        assert result.description is not None and len(result.description) > 0
+        assert result["description"] is not None and len(result["description"]) > 0
 
     def test_other_relevant_info_extraction(self):
         """测试 other_relevant_info 字段的提取（病史信息）"""
@@ -231,7 +238,7 @@ class TestConditionCollectorWithLlama:
             "我感觉脚踝有点不舒服，持续两三天了。两三天前我扭伤过一次，但是很快就好了。但是现在脚踝又开始不舒服了。"
         )
         # other_relevant_info 可以是列表（即使为空或包含推断内容）
-        assert isinstance(result.other_relevant_info, list)
+        assert isinstance(result["other_relevant_info"], list)
 
 
 class TestConditionCollectorWithDeepseek:
@@ -252,17 +259,122 @@ class TestConditionCollectorWithDeepseek:
         """
         result = collect_condition(example["input"])
 
-        # 验证所有字段都存在且为正确类型
-        assert result.body_parts is not None and isinstance(result.body_parts, str)
-        assert result.severity is not None and isinstance(result.severity, str)
-        assert result.duration is not None and isinstance(result.duration, str)
-        assert result.description is not None and isinstance(result.description, str)
-        assert result.other_relevant_info is not None and isinstance(result.other_relevant_info, list)
+        # 验证所有字段都存在且为正确类型（返回 dict）
+        assert result["body_parts"] is not None and isinstance(result["body_parts"], str)
+        assert result["severity"] is not None and isinstance(result["severity"], str)
+        assert result["duration"] is not None and isinstance(result["duration"], str)
+        assert result["description"] is not None and isinstance(result["description"], str)
+        assert result["other_relevant_info"] is not None and isinstance(result["other_relevant_info"], list)
 
         # 核心字段不应为空
-        assert len(result.body_parts.strip()) > 0, "body_parts should not be empty"
-        assert len(result.severity.strip()) > 0, "severity should not be empty"
-        assert len(result.description.strip()) > 0, "description should not be empty"
+        assert len(result["body_parts"].strip()) > 0, "body_parts should not be empty"
+        assert len(result["severity"].strip()) > 0, "severity should not be empty"
+        assert len(result["description"].strip()) > 0, "description should not be empty"
+
+
+# ===========================
+# Previous Conclusions Tests
+# ===========================
+
+class TestConditionCollectorPreviousConclusions:
+    """测试 previous_conclusions 参数的功能"""
+
+    @pytest.fixture(autouse=True, scope="class")
+    def setup_lm(self, deepseek_lm):
+        """配置 DSPy 使用 Deepseek LM"""
+        dspy.configure(lm=deepseek_lm)
+
+    def test_previous_conclusions_empty_by_default(self):
+        """测试 previous_conclusions 默认为空列表"""
+        result = collect_condition("我头疼")
+        # 没有提供 previous_conclusions，应该正常工作
+        assert result is not None
+        assert result["body_parts"] is not None
+        assert result["description"] is not None
+
+    def test_previous_conclusions_single_conclusion(self):
+        """测试提供单个 previous_conclusion 的情况"""
+        result = collect_condition(
+            description_from_user="我肚子有点不舒服",
+            previous_conclusions=["疑似消化不良"]
+        )
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "body_parts" in result
+        assert "description" in result
+
+    def test_previous_conclusions_multiple_conclusions(self):
+        """测试提供多个 previous_conclusions 的情况"""
+        result = collect_condition(
+            description_from_user="我胸闷",
+            previous_conclusions=[
+                "可能与心脏相关",
+                "建议做心电图检查"
+            ]
+        )
+        assert result is not None
+        assert isinstance(result, dict)
+
+    def test_previous_conclusions_affects_output(self):
+        """测试 previous_conclusions 是否影响输出（与无 previous_conclusions 的情况对比）"""
+        description = "我脚踝肿了"
+
+        # 不带 previous_conclusions
+        result_without_prev = collect_condition(description_from_user=description)
+
+        # 带 previous_conclusions（假设之前诊断过扭伤）
+        result_with_prev = collect_condition(
+            description_from_user=description,
+            previous_conclusions=["之前有扭伤史"]
+        )
+
+        # 两种情况都应该返回有效结果
+        assert result_without_prev is not None
+        assert result_with_prev is not None
+
+        # 如果 previous_conclusions 被正确使用，body_parts 应该相同（都是脚踝）
+        # 但 description 可能不同（考虑到了病史）
+        assert result_with_prev["body_parts"] == result_without_prev["body_parts"]
+
+    def test_previous_conclusions_format(self):
+        """测试 previous_conclusions 格式化是否正确"""
+        previous_conclusions = [
+            "第一条结论",
+            "第二条结论",
+            "第三条结论"
+        ]
+
+        result = collect_condition(
+            description_from_user="测试描述",
+            previous_conclusions=previous_conclusions
+        )
+
+        # 应该返回有效的结构化结果
+        assert result is not None
+        assert isinstance(result, dict) and "body_parts" in result
+
+    def test_previous_conclusions_none_value(self):
+        """测试 previous_conclusions 传入 None 的情况"""
+        result = collect_condition(
+            description_from_user="我头疼",
+            previous_conclusions=None
+        )
+        # 应该正常工作
+        assert result is not None
+
+    def test_previous_conclusions_with_medical_history(self):
+        """测试 previous_conclusions 包含医疗史的情况"""
+        result = collect_condition(
+            description_from_user="我现在感觉心悸",
+            previous_conclusions=[
+                "曾有甲状腺亢进病史",
+                "近期工作压力大"
+            ]
+        )
+        assert result is not None
+        assert result["body_parts"] is not None
+        # other_relevant_info 可能包含病史相关信息
+        assert isinstance(result["other_relevant_info"], list)
 
 
 # ===========================
@@ -319,8 +431,8 @@ class TestConditionCollectorEdgeCases:
     def test_very_short_input(self):
         """测试非常短的输入"""
         result = collect_condition("脚疼。")
-        assert result.body_parts is not None
-        assert result.description is not None
+        assert result["body_parts"] is not None
+        assert result["description"] is not None
 
     def test_long_input_with_history(self):
         """测试包含病史的长输入"""
@@ -331,7 +443,7 @@ class TestConditionCollectorEdgeCases:
             "最近工作压力比较大，经常加班到很晚。"
         )
         # 应该提取到身体部位和症状
-        assert result.body_parts is not None and len(result.body_parts) > 0
-        assert result.description is not None and len(result.description) > 0
+        assert result["body_parts"] is not None and len(result["body_parts"]) > 0
+        assert result["description"] is not None and len(result["description"]) > 0
         # 病史信息应该被提取到 other_relevant_info
-        assert isinstance(result.other_relevant_info, list)
+        assert isinstance(result["other_relevant_info"], list)

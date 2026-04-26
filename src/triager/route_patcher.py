@@ -29,6 +29,15 @@ AVAILABLE_LOCATIONS = {
     "quit": "出口",
 }
 
+DEFAULT_ROUTE = [
+    "entrance",
+    "registration_center",
+    "surgery_clinic",
+    "payment_center",
+    "pharmacy",
+    "quit",
+]
+
 
 def _format_locations() -> str:
     """格式化可用位置列表供 instructions 使用"""
@@ -107,7 +116,7 @@ def apply_patches(route: list[str], patches: list[dict]) -> list[str]:
             this = patch.get("this")
             next_loc = patch.get("next")
 
-            if previous in result:
+            if previous in result and isinstance(this, str):
                 idx = result.index(previous)
                 if next_loc and next_loc in result:
                     next_idx = result.index(next_loc)
@@ -141,39 +150,36 @@ def patch_route(
     """
     
     if origin_route is None:
-        origin_route = [
-            "entrance",
-            "registration_center",
-            "surgery_clinic",
-            "payment_center",
-            "pharmacy",
-            "quit"
-        ]
+        origin_route = DEFAULT_ROUTE.copy()
 
     locations_info = _format_locations()
 
     # 创建 CoT 模块
     cot = RoutePatcherCot(RoutePatcherSignature)
 
-    result = cot(
-        instructions=f"""Route patcher in a Chinese hospital. Insert locations based on: "现在"(after entrance), "给医生看病前"(before clinic), "拿完药之后"(after pharmacy), "最后"(before quit). Output JSON: {{"patches": [{{"type": "insert"|"delete", "previous": loc, "this": loc, "next": loc}}]}}.""",
-        destination_clinic_id=destination_clinic_id,
-        requirement_summary=requirement_summary,
-        current_route=origin_route
-    )
+    try:
+        result = cot(
+            instructions=f"""Route patcher in a Chinese hospital. Insert locations based on: "现在"(after entrance), "给医生看病前"(before clinic), "拿完药之后"(after pharmacy), "最后"(before quit). Output JSON: {{"patches": [{{"type": "insert"|"delete", "previous": loc, "this": loc, "next": loc}}]}}.""",
+            destination_clinic_id=destination_clinic_id,
+            requirement_summary=requirement_summary,
+            current_route=origin_route
+        )
 
-    # 提取 patches
-    patches = result.patches if hasattr(result, 'patches') else []
+        # 提取 patches
+        patches = result.patches if hasattr(result, 'patches') else []
 
-    # 应用 patches 到路线
-    final_route = apply_patches(origin_route, patches)
+        # 应用 patches 到路线
+        final_route = apply_patches(origin_route, patches)
 
-    logger.info(f"[RoutePatcher] Destination: {destination_clinic_id}, Requirements: {requirement_summary}")
-    logger.info(f"[RoutePatcher] Reasoning: {result.reasoning}")
-    logger.info(f"[RoutePatcher] Generated patches: {patches}")
-    logger.info(f"[RoutePatcher] Final route: {final_route}")
+        logger.info(f"[RoutePatcher] Destination: {destination_clinic_id}, Requirements: {requirement_summary}")
+        logger.info(f"[RoutePatcher] Reasoning: {result.reasoning}")
+        logger.info(f"[RoutePatcher] Generated patches: {patches}")
+        logger.info(f"[RoutePatcher] Final route: {final_route}")
 
-    return final_route
+        return final_route
+    except Exception as e:
+        logger.error(f"[RoutePatcher] Fallback to origin route due to error: {e}", exc_info=True)
+        return origin_route.copy()
 
 
 __all__ = [
