@@ -4,6 +4,7 @@
 # @author n1ghts4kura
 # @date 2026-04-24
 
+import argparse
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -17,18 +18,37 @@ from src.whisper_manager import whisper_manager
 from src.stt import router as stt_router
 from src.tts import router as tts_router
 from src.triager.routing import triager_router
-from src.llm import deepseek
 
 
-# set default LLM to deepseek
-dspy.configure(lm=deepseek.DeepseekLM())
+def parse_args():
+    parser = argparse.ArgumentParser(description="UFC 2026 Backend Server")
+    parser.add_argument(
+        "--llm_online",
+        action="store_true",
+        help="Enable online LLM (DeepSeek). Default: False (uses local Llama)"
+    )
+    return parser.parse_args()
+
+
+args = parse_args()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage application lifecycle: start/stop whisper-server."""
+    """Manage application lifecycle: start/stop whisper-server and configure LLM."""
     # Startup
     whisper_manager.start()
+    if args.llm_online:
+        from src.llm.deepseek import DeepseekLM
+        dspy.configure(lm=DeepseekLM())
+        info("Using online LLM: DeepSeek")
+    else:
+        from src.llm.llama import LlamaCppLM
+        dspy.configure(lm=LlamaCppLM(
+            model_id="main-lm",
+            model_filename="Qwen_Qwen3.5-2B-Q4_K_M"
+        ))
+        info("Using local LLM: Qwen")
     yield
     # Shutdown
     whisper_manager.stop()
