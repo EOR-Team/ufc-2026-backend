@@ -24,4 +24,4 @@ class DeepseekLM(dspy.LM):
         api_key = os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
             raise ValueError("未找到 DEEPSEEK_API_KEY 环境变量")
-        super().__init__("deepseek/deepseek-chat", api_key=api_key)
+        super().__init__("deepseek/deepseek-v4-flash", api_key=api_key)
