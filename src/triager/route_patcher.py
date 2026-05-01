@@ -11,38 +11,29 @@ from typing import Optional
 import dspy
 
 from src import logger
+from src.map import get_map
 
 
-# 可用的位置节点定义
-AVAILABLE_LOCATIONS = {
-    "entrance": "医院入口",
-    "registration_center": "挂号中心",
-    "emergency_clinic": "急诊室 - 24小时开放，专门用于抢救与处理突发、危重的伤病员",
-    "surgery_clinic": "外科诊室 - 处理需手术或操作的外伤、感染、肿瘤等体表及内部疾病",
-    "internal_clinic": "内科诊室 - 通过问诊、查体及非手术方式诊疗人体内部各系统疾病",
-    "pediatric_clinic": "儿科诊室 - 专门为14周岁以下儿童及青少年提供疾病诊疗",
-    "payment_center": "缴费中心",
-    "pharmacy": "药房",
-    "toilet": "洗手间/厕所",
-    "restroom": "洗手间/厕所",  # 别名
-    "print_shop": "打印店",
-    "quit": "出口",
-}
+def _get_available_locations() -> dict[str, str]:
+    """从 map.json 动态获取所有 main 节点的位置描述。"""
+    map_data = get_map()
+    info = map_data.get_main_node_info()
+    return {node_id: data["description"] for node_id, data in info.items()}
 
-DEFAULT_ROUTE = [
-    "entrance",
-    "registration_center",
-    "surgery_clinic",
-    "payment_center",
-    "pharmacy",
-    "quit",
-]
+
+def _get_default_route() -> list[str]:
+    """从 map.json 的 main 节点中获取默认路线（按坐标排序）。"""
+    map_data = get_map()
+    main_nodes = [n for n in map_data.nodes if n.type == "main"]
+    sorted_nodes = sorted(main_nodes, key=lambda n: (n.y, n.x))
+    return [n.id for n in sorted_nodes[:6]]
 
 
 def _format_locations() -> str:
     """格式化可用位置列表供 instructions 使用"""
+    locations = _get_available_locations()
     lines = []
-    for loc_id, desc in AVAILABLE_LOCATIONS.items():
+    for loc_id, desc in locations.items():
         lines.append(f"- {loc_id}: {desc}")
     return "\n".join(lines)
 
@@ -150,7 +141,7 @@ def patch_route(
     """
     
     if origin_route is None:
-        origin_route = DEFAULT_ROUTE.copy()
+        origin_route = _get_default_route().copy()
 
     locations_info = _format_locations()
 
@@ -186,5 +177,4 @@ __all__ = [
     "patch_route",
     "RoutePatcherSignature",
     "apply_patches",
-    "AVAILABLE_LOCATIONS",
 ]
