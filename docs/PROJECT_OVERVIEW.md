@@ -1,55 +1,55 @@
-# Project Overview
+# 项目概览
 
-This document establishes the "worldview" for AI assistants before they begin any task in `ufc-2026-backend`. If the worldview is wrong, everything built afterwards will drift further from the target.
+本文档为 AI 助手在 `ufc-2026-backend` 项目中执行任何任务前建立的"世界观"。如果世界观不正确，后续所有构建都会偏离目标。
 
-## 1. What This Project Does
+## 1. 项目做什么
 
-**UFC 2026 Backend** is a hospital navigation and intelligent triage system backend. It provides:
+**UFC 2026 Backend** 是一个医院导航与智能分诊系统后端，提供：
 
-| Capability | Description |
-|-----------|-------------|
-| **Voice Interaction** | STT (Whisper) + TTS (Piper) for voice input/output |
-| **Clinic Selection** | AI agent selects appropriate clinic based on patient symptoms |
-| **Route Planning** | Generates/modifies hospital navigation routes based on destination and user requirements like "现在去洗手间" (go to toilet now) or "看病前" (before seeing doctor) |
-| **Robot Control** | `/car/*` API endpoints for chassis movement control |
+| 能力 | 描述 |
+|------|------|
+| **语音交互** | STT (Whisper) + TTS (Piper) 实现语音输入输出 |
+| **诊室选择** | AI Agent 根据患者症状选择合适诊室 |
+| **路线规划** | 根据目的地和用户需求（如"现在去洗手间"、"看病前"）生成/修改医院导航路线 |
+| **机器人控制** | `/car/*` API 接口实现底盘运动控制 |
 
-### Core User Flow
+### 核心用户流程
 
 ```
-User (Voice) → STT → LLM Reasoning → Route Patcher → Car Control → TTS → User
-                      ↓
-               Map + Dijkstra Pathfinder
+用户（语音）→ STT → LLM 推理 → Route Patcher → 车辆控制 → TTS → 用户
+                     ↓
+              Map + Dijkstra Pathfinder
 ```
 
-## 2. Project Boundaries
+## 2. 项目边界
 
-| Boundary | Description |
-|----------|-------------|
-| **In Scope** | Single-robot indoor navigation, voice consultation, LLM reasoning (local/cloud) |
-| **Out of Scope** | Multi-robot coordination, real-time map updates, sensor fusion |
-| **External Dependencies** | whisper.cpp (speech), llama.cpp (local LLM), DeepSeek API (cloud LLM) |
-| **Output Form** | REST API + audio files. No frontend or mobile components |
+| 边界 | 描述 |
+|------|------|
+| **范围内** | 单机器人室内导航、语音咨询、本地/云端 LLM 推理 |
+| **范围外** | 多机器人协作、实时地图更新、传感器融合 |
+| **外部依赖** | whisper.cpp（语音）、llama.cpp（本地 LLM）、DeepSeek API（云端 LLM） |
+| **输出形式** | REST API + 音频文件。无前端或移动端组件 |
 
-### What This Project Is NOT
+### 这个项目不是什么
 
-- Not a general-purpose chatbot
-- Not a map rendering system
-- Not a real-time tracking system
-- Not a medical diagnosis system (only provides location/route advice)
+- 不是通用聊天机器人
+- 不是地图渲染系统
+- 不是实时追踪系统
+- 不是医疗诊断系统（仅提供位置/路线建议）
 
-## 3. Technology Stack
+## 3. 技术栈
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **AI Framework** | DSPy | Signature-based task definition, ChainOfThought reasoning |
-| **Local LLM** | llama-cpp-python + GGUF (Q4 quantized) | Offline inference with CUDA acceleration |
-| **Cloud LLM** | DeepSeek API (via litellm) | Online inference when local GPU unavailable |
-| **STT** | whisper.cpp | Speech-to-text with CUDA support |
-| **TTS** | Piper | Text-to-speech with RNN-T models |
-| **Backend** | FastAPI + uvicorn + Pydantic | REST API + runtime type validation |
-| **Testing** | pytest + pytest-cov | Unit/integration tests with 80%+ coverage |
+| 层级 | 技术 | 用途 |
+|------|------|------|
+| **AI 框架** | DSPy | 基于 Signature 的任务定义，ChainOfThought 推理 |
+| **本地 LLM** | llama-cpp-python + GGUF（Q4 量化） | CUDA 加速的离线推理 |
+| **云端 LLM** | DeepSeek API（通过 litellm） | 本地 GPU 不可用时的在线推理 |
+| **STT** | whisper.cpp | 支持 CUDA 的语音转文字 |
+| **TTS** | Piper | 使用 RNN-T 模型实现文字转语音 |
+| **后端** | FastAPI + uvicorn + Pydantic | REST API + 运行时类型验证 |
+| **测试** | pytest + pytest-cov | 80%+ 覆盖率的单元/集成测试 |
 
-### Key Libraries
+### 核心依赖
 
 ```
 # AI / LLM
@@ -57,57 +57,57 @@ dspy
 litellm
 llama-cpp-python
 
-# Backend
+# 后端
 fastapi
 uvicorn
 pydantic
 
-# Utils
+# 工具
 python-dotenv
 ```
 
-## 4. Directory Structure
+## 4. 目录结构
 
 ```
 ufc-2026-backend/
-├── src/                    # Business code
-│   ├── main.py            # FastAPI entry point, lifespan management (whisper-server, LLM config)
-│   ├── logger.py         # Colored logging utility (info, debug, error)
-│   ├── utils.py          # Result type, ROOT_DIR constant
+├── src/                    # 业务代码
+│   ├── main.py            # FastAPI 入口，lifespan 管理（whisper-server, LLM 配置）
+│   ├── logger.py         # 彩色日志工具（info, debug, error）
+│   ├── utils.py          # Result 类型、ROOT_DIR 常量
 │   │
-│   ├── map/              # Hospital map module
-│   │   ├── map.json      # Node/edge graph data (lazy-loaded)
-│   │   ├── typedef.py    # Pydantic models: Node, Edge, Map
-│   │   ├── tools.py      # get_map() with module-level cache
-│   │   ├── routes.py     # /map/* API endpoints
+│   ├── map/              # 医院地图模块
+│   │   ├── map.json      # 节点/边图数据（惰性加载）
+│   │   ├── typedef.py    # Pydantic 模型：Node, Edge, Map
+│   │   ├── tools.py      # get_map() 带模块级缓存
+│   │   ├── routes.py     # /map/* API 端点
 │   │   └── __init__.py
 │   │
-│   ├── car/               # Robot chassis control (mock/logging)
+│   ├── car/               # 机器人底盘控制（mock/logging）
 │   │   ├── control.py    # forward, backward, turn, stop
-│   │   ├── adapter.py    # Hardware adapter interface
-│   │   ├── routes.py     # /car/* API endpoints
+│   │   ├── adapter.py    # 硬件适配器接口
+│   │   ├── routes.py     # /car/* API 端点
 │   │   └── __init__.py
 │   │
-│   ├── triager/           # Triage + route modification agents
-│   │   ├── route_patcher.py  # DSPy CoT for route modification
-│   │   ├── routing.py    # Main triage router
+│   ├── triager/           # 分诊 + 路线修改 Agent
+│   │   ├── route_patcher.py  # DSPy CoT 路线修改
+│   │   ├── routing.py    # 主分诊路由器
 │   │   ├── clinic_selector.py
 │   │   ├── condition_collector.py
 │   │   ├── requirement_collector.py
 │   │   └── __init__.py
 │   │
-│   ├── voice/             # Speech modules
-│   │   ├── stt.py         # STT router
-│   │   ├── tts.py         # TTS router
-│   │   ├── whisper_manager.py  # whisper.cpp lifecycle
+│   ├── voice/             # 语音模块
+│   │   ├── stt.py         # STT 路由器
+│   │   ├── tts.py         # TTS 路由器
+│   │   ├── whisper_manager.py  # whisper.cpp 生命周期管理
 │   │   └── piper_tts_service.py
 │   │
-│   └── llm/               # LLM adapters
-│       ├── llama.py       # llama.cpp wrapper + DSPy LM adapter
-│       ├── deepseek.py    # DeepSeek API integration
+│   └── llm/               # LLM 适配器
+│       ├── llama.py       # llama.cpp 封装 + DSPy LM 适配器
+│       ├── deepseek.py    # DeepSeek API 集成
 │       └── __init__.py
 │
-├── test/                   # pytest tests (80%+ coverage required)
+├── test/                   # pytest 测试（要求 80%+ 覆盖率）
 │   ├── test_route_patcher.py
 │   ├── test_clinic_selector.py
 │   ├── test_condition_collector.py
@@ -115,49 +115,52 @@ ufc-2026-backend/
 │   ├── test_medical_care.py
 │   └── ...
 │
-├── docs/                   # AI-friendly development documentation
+├── docs/                   # AI 友好的开发文档
 │   ├── ai-dev-guide/
-│   │   ├── PROJECT_OVERVIEW.md  # This file
-│   │   ├── project-structure.md  # (To be updated)
+│   │   ├── PROJECT_OVERVIEW.md  # 本文件
+│   │   ├── project-structure.md  # （待更新）
 │   │   ├── quick-start.md
-│   │   └── technology-stack.md  # (To be updated)
-│   ├── dspy-patterns/       # DSPy patterns guide
-│   ├── project-conventions/ # Coding standards
-│   └── troubleshooting/     # Common issues guide
+│   │   └── technology-stack.md  # （待更新）
+│   ├── dspy-patterns/       # DSPy 模式指南
+│   ├── project-conventions/ # 编码规范
+│   └── troubleshooting/     # 常见问题指南
 │
-├── model/                  # LLM model files + configs
+├── model/                  # LLM 模型文件 + 配置
 │   ├── LFM2.5-1.2B-Instruct-Q4_K_M.gguf
 │   ├── LFM2.5-1.2B-Instruct-Q4_K_M.llm.json
 │   └── LFM2.5-1.2B-Instruct-Q4_K_M.infer.json
 │
-├── tech_docs/              # Third-party library documentation
-├── openspec/               # OpenSpec config-driven development
-├── piper/                  # Piper TTS models
-├── outputs/                # Generated output files (TTS audio, etc.)
-└── whisper.cpp/            # C++ STT library (git submodule)
+├── tech_docs/              # 第三方库文档
+├── openspec/               # OpenSpec 配置驱动开发
+├── piper/                  # Piper TTS 模型
+├── outputs/                # 生成的输出文件（TTS 音频等）
+└── whisper.cpp/            # C++ STT 库（git 子模块）
 ```
 
-### Key Entry Points
+### 核心入口点
 
-#### Main Application
-- **File**: `src/main.py`
-- **Purpose**: FastAPI app with lifespan management, CORS, router registration
+#### 主应用
 
-#### Map Module (`src/map/`)
+- **文件**: `src/main.py`
+- **用途**: 带有 lifespan 管理、CORS、路由器注册的 FastAPI 应用
+
+#### 地图模块 (`src/map/`)
+
 ```python
 from src.map import get_map
 
 map_data = get_map()
-main_ids = map_data.get_main_node_ids()        # Get all main node IDs
+main_ids = map_data.get_main_node_ids()        # 获取所有主节点 ID
 info = map_data.get_main_node_info()           # {node_id: {name, description}}
-path = map_data.dijkstra("entrance", "surgery_clinic")  # Returns node ID list
+path = map_data.dijkstra("entrance", "surgery_clinic")  # 返回节点 ID 列表
 ```
 
-#### Route Patcher (`src/triager/route_patcher.py`)
+#### 路线修改器 (`src/triager/route_patcher.py`)
+
 ```python
 from src.triager.route_patcher import patch_route
 
-# Returns modified route based on requirements
+# 根据需求返回修改后的路线
 result = patch_route(
     destination_clinic_id="surgery_clinic",
     requirement_summary=[{"when": "现在", "what": "去洗手间"}],
@@ -165,52 +168,53 @@ result = patch_route(
 )
 ```
 
-#### Car Control (`src/car/`)
+#### 车辆控制 (`src/car/`)
+
 ```python
 from src.car.control import forward, backward, turn, stop
 
-forward(1.5)   # Move forward 1.5 meters
-turn(90)       # Turn right 90 degrees
+forward(1.5)   # 前进 1.5 米
+turn(90)       # 右转 90 度
 ```
 
-### File Naming Conventions
+### 文件命名规范
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Python modules | lowercase + underscores | `clinic_selector.py` |
-| Agent modules | noun describing function | `route_patcher.py`, not `patch_route.py` |
-| Test files | `test_<module_name>.py` | `test_route_patcher.py` |
-| DSPy Signatures | PascalCase with Signature suffix | `RoutePatcherSignature` |
-| DSPy CoT classes | PascalCase with Cot suffix | `RoutePatcherCot` |
+| 类型 | 规范 | 示例 |
+|------|------|------|
+| Python 模块 | 小写 + 下划线 | `clinic_selector.py` |
+| Agent 模块 | 描述功能的名词 | `route_patcher.py`，不是 `patch_route.py` |
+| 测试文件 | `test_<模块名>.py` | `test_route_patcher.py` |
+| DSPy Signature | PascalCase + Signature 后缀 | `RoutePatcherSignature` |
+| DSPy CoT 类 | PascalCase + Cot 后缀 | `RoutePatcherCot` |
 
-## Map Data Structure
+## 地图数据结构
 
-The hospital map (`src/map/map.json`) uses a node-edge graph:
+医院地图（`src/map/map.json`）使用节点-边图结构：
 
-### Node Types
+### 节点类型
 
-| Type | Meaning | Examples |
-|------|---------|----------|
-| `main` | Actual locations patients visit | `entrance`, `surgery_clinic`, `toilet` |
-| `nav` | Navigation waypoints (intersections) | `crossroad1`, `crossroad2` |
+| 类型 | 含义 | 示例 |
+|------|------|------|
+| `main` | 患者实际访问的位置 | `entrance`, `surgery_clinic`, `toilet` |
+| `nav` | 导航路径点（交叉口） | `crossroad1`, `crossroad2` |
 
-### Edge Cost
+### 边权重
 
-- **Default cost**: Manhattan distance (`|x1-x2| + |y1-y2|`)
-- Edge costs are computed lazily on first `get_map()` call
+- **默认权重**：曼哈顿距离（`|x1-x2| + |y1-y2|`）
+- 边权重在首次调用 `get_map()` 时惰性计算
 
-### Default Route Generation
+### 默认路线生成
 
-When `origin_route` is not provided, `patch_route()` generates a default route:
-- Selects all `main` nodes from map.json
-- Sorts by `(y, x)` coordinates (top-to-bottom, left-to-right)
-- Takes first 6 nodes as the standard visit order
+当未提供 `origin_route` 时，`patch_route()` 生成默认路线：
+- 从 map.json 中选择所有 `main` 节点
+- 按 `(y, x)` 坐标排序（从上到下、从左到右）
+- 取前 6 个节点作为标准访问顺序
 
 ---
 
-## Status: Incomplete
+## 状态：未完成
 
-This overview will be expanded with:
-- **Platform/Module Status**: Completion status, known limitations per module
-- **Architecture & Runtime Constraints**: API availability, pure function requirements, cross-runtime differences
-- **Coding Conventions**: Naming rules, function boundaries, error handling patterns
+此概览将随以下内容扩展：
+- **平台/模块状态**：每个模块的完成状态、已知限制
+- **架构与运行时约束**：API 可用性、纯函数要求、跨运行时差异
+- **编码规范**：命名规则、函数边界、错误处理模式
