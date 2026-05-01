@@ -1,4 +1,4 @@
-# src/tts.py
+# src/voice/tts.py
 # TTS endpoint for Piper text-to-speech synthesis
 #
 # @author n1ghts4kura
@@ -7,7 +7,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from src.piper_tts_service import piper_tts_service
+from src.voice.piper_tts_service import piper_tts_service
 
 
 router = APIRouter()

@@ -14,9 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from src.logger import info, error
-from src.whisper_manager import whisper_manager
-from src.stt import router as stt_router
-from src.tts import router as tts_router
+from src.voice.whisper_manager import whisper_manager
+from src.voice.stt import router as stt_router
+from src.voice.tts import router as tts_router
 from src.triager.routing import triager_router
 
 

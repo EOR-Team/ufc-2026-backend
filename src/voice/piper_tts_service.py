@@ -1,4 +1,4 @@
-# src/piper_tts_service.py
+# src/voice/piper_tts_service.py
 # Piper TTS service with lazy voice loading
 #
 # @author n1ghts4kura

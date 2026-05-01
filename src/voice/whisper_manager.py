@@ -1,4 +1,4 @@
-# src/whisper_manager.py
+# src/voice/whisper_manager.py
 # Whisper-server lifecycle manager - binds whisper-server to FastAPI lifecycle
 #
 # @author n1ghts4kura

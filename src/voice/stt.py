@@ -1,4 +1,4 @@
-# src/stt.py
+# src/voice/stt.py
 # Speech-to-text endpoint - accepts audio upload, converts, and transcribes
 #
 # @author n1ghts4kura
@@ -13,7 +13,7 @@ import requests
 from fastapi import APIRouter, File, UploadFile, HTTPException
 
 from src.logger import error
-from src.whisper_manager import whisper_manager
+from src.voice.whisper_manager import whisper_manager
 
 
 router = APIRouter()
