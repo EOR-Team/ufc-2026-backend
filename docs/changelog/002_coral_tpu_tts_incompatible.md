@@ -1,3 +1,11 @@
+---
+name: "002: Coral TPU 与 TTS 不兼容"
+category: adr
+field: tts
+description: 确定 Coral TPU 与 Piper TTS 不兼容的决策记录
+date: 2026-04-25
+---
+
 # 002: Coral TPU 与 TTS 不兼容
 
 **日期**: 2026-04-25

@@ -1,3 +1,11 @@
+---
+name: TDD 工作流规范
+category: rule
+field: code
+description: 定义 RED-GREEN-REFACTOR 循环与测试编写标准
+date: 2026-05-02
+---
+
 # TDD 工作流规范
 
 **日期**: 2026-05-02

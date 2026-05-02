@@ -1,3 +1,11 @@
+---
+name: "003: Result Type 模式"
+category: adr
+field: code
+description: 确定使用 Result Type 进行错误处理传播
+date: 2026-04-24
+---
+
 # 003: Result Type 模式
 
 **日期**: 2026-04-24

@@ -1,3 +1,11 @@
+---
+name: Changelog 规范
+category: policy
+field: adr
+description: 定义 ADR 条目的创建、修改规范与文件命名
+date: 2026-05-02
+---
+
 # Changelog 规范
 
 ## 目的

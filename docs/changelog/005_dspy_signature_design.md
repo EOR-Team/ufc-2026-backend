@@ -1,3 +1,11 @@
+---
+name: "005: DSPy Signature 设计原则"
+category: adr
+field: code
+description: 确定 DSPy Signature 命名与设计规范
+date: 2026-04-19
+---
+
 # 005: DSPy Signature 设计原则
 
 **日期**: 2026-04-19

@@ -1,3 +1,11 @@
+---
+name: "001: TTS 方案选择"
+category: adr
+field: tts
+description: 选定 Piper TTS 作为本地语音合成方案
+date: 2026-04-25
+---
+
 # 001: TTS 方案选择
 
 **日期**: 2026-04-25

@@ -1,3 +1,11 @@
+---
+name: 项目概览
+category: concept
+field: global
+description: AI 助手在项目中建立世界观的基准文档
+date: 2026-05-02
+---
+
 # 项目概览
 
 本文档为 AI 助手在 `ufc-2026-backend` 项目中执行任何任务前建立的"世界观"。如果世界观不正确，后续所有构建都会偏离目标。
