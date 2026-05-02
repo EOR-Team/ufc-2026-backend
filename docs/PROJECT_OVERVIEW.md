@@ -139,82 +139,54 @@ ufc-2026-backend/
 
 ### 核心入口点
 
-#### 主应用
+#### 主应用 (`src/main.py`)
 
-- **文件**: `src/main.py`
-- **用途**: 带有 lifespan 管理、CORS、路由器注册的 FastAPI 应用
+FastAPI 应用入口，负责 lifespan 管理（whisper-server、LLM 配置初始化）、CORS 配置和路由器注册。
 
 #### 地图模块 (`src/map/`)
 
-```python
-from src.map import get_map
+医院地图管理模块，提供节点查询、边权重计算和最短路径计算功能。地图数据惰性加载到内存，权重在首次调用时计算。
 
-map_data = get_map()
-main_ids = map_data.get_main_node_ids()        # 获取所有主节点 ID
-info = map_data.get_main_node_info()           # {node_id: {name, description}}
-path = map_data.dijkstra("entrance", "surgery_clinic")  # 返回节点 ID 列表
-```
+#### 分诊与路线修改 (`src/triager/`)
 
-#### 路线修改器 (`src/triager/route_patcher.py`)
-
-```python
-from src.triager.route_patcher import patch_route
-
-# 根据需求返回修改后的路线
-result = patch_route(
-    destination_clinic_id="surgery_clinic",
-    requirement_summary=[{"when": "现在", "what": "去洗手间"}],
-    origin_route=["entrance", "registration_center", "surgery_clinic", "quit"]
-)
-```
+AI Agent 核心模块，负责：
+- **诊室选择**：根据患者症状选择合适诊室
+- **路线修改**：根据用户临时需求（如"中途去洗手间"）调整既定路线
 
 #### 车辆控制 (`src/car/`)
 
-```python
-from src.car.control import forward, backward, turn, stop
+机器人底盘控制模块，提供前进、后退、转向、停止等基础操作。当前实现为 mock 模式（仅记录日志），待硬件适配后替换为真实控制指令。
 
-forward(1.5)   # 前进 1.5 米
-turn(90)       # 右转 90 度
-```
+#### 语音模块 (`src/voice/`)
 
-### 文件命名规范
+语音输入输出模块：
+- **STT**：通过 whisper.cpp 将语音转为文字
+- **TTS**：通过 Piper 将文字转为语音
 
-| 类型 | 规范 | 示例 |
-|------|------|------|
-| Python 模块 | 小写 + 下划线 | `clinic_selector.py` |
-| Agent 模块 | 描述功能的名词 | `route_patcher.py`，不是 `patch_route.py` |
-| 测试文件 | `test_<模块名>.py` | `test_route_patcher.py` |
-| DSPy Signature | PascalCase + Signature 后缀 | `RoutePatcherSignature` |
-| DSPy CoT 类 | PascalCase + Cot 后缀 | `RoutePatcherCot` |
+#### LLM 适配器 (`src/llm/`)
 
-## 地图数据结构
+统一的大语言模型接口，支持本地 llama.cpp 推理和 DeepSeek 云端 API，通过 DSPy 框架调用。
+
+### 地图数据结构
 
 医院地图（`src/map/map.json`）使用节点-边图结构：
 
-### 节点类型
-
-| 类型 | 含义 | 示例 |
-|------|------|------|
+| 节点类型 | 含义 | 示例 |
+|----------|------|------|
 | `main` | 患者实际访问的位置 | `entrance`, `surgery_clinic`, `toilet` |
 | `nav` | 导航路径点（交叉口） | `crossroad1`, `crossroad2` |
 
-### 边权重
+边权重默认使用曼哈顿距离（`|x1-x2| + |y1-y2|`），在首次调用 `get_map()` 时惰性计算。
 
-- **默认权重**：曼哈顿距离（`|x1-x2| + |y1-y2|`）
-- 边权重在首次调用 `get_map()` 时惰性计算
-
-### 默认路线生成
-
-当未提供 `origin_route` 时，`patch_route()` 生成默认路线：
-- 从 map.json 中选择所有 `main` 节点
-- 按 `(y, x)` 坐标排序（从上到下、从左到右）
-- 取前 6 个节点作为标准访问顺序
+当未提供 `origin_route` 时，`patch_route()` 生成默认路线：按 `(y, x)` 坐标排序 map.json 中所有 `main` 节点，取前 6 个作为标准访问顺序。
 
 ---
 
-## 状态：未完成
+## 状态：已稳定
 
-此概览将随以下内容扩展：
-- **平台/模块状态**：每个模块的完成状态、已知限制
-- **架构与运行时约束**：API 可用性、纯函数要求、跨运行时差异
-- **编码规范**：命名规则、函数边界、错误处理模式
+此概览描述了项目的完整能力边界，已涵盖核心模块功能和安全保障要求。
+
+### 待扩展内容
+
+- **平台/模块状态**：各模块完成度、已知限制
+- **架构与运行时约束**：纯函数要求、跨运行时差异
