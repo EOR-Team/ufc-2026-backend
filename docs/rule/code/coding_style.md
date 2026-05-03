@@ -1,6 +1,6 @@
 ---
 name: CODING-STYLE 代码风格规范
-category: rule
+category: policy
 field: code
 description: 定义命名规范、代码风格与日志标准
 date: 2026-05-02

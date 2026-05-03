@@ -1,6 +1,6 @@
 ---
 name: SECURITY 安全规范
-category: rule
+category: policy
 field: security
 description: 定义敏感数据处理、权限校验与安全开发原则
 date: 2026-05-02

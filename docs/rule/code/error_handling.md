@@ -1,6 +1,6 @@
 ---
 name: ERROR-HANDLING 错误处理规范
-category: rule
+category: policy
 field: code
 description: 定义 Result Type 模式与错误处理标准
 date: 2026-05-02
