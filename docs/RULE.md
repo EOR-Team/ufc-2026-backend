@@ -43,8 +43,8 @@ date: YYYY-MM-DD
 |----------|------|----------|
 | `infra-rule` | 文档系统基础设施规则 | `docs/RULE.md` |
 | `policy` | 操作规程/约束性规则 | `changelog/RULE.md`、`rule/SECURITY.md` |
-| `adr` | 架构决策记录 | `decisions/adr-*.md`、`changelog/00x_*.md` |
-| `guide` | 操作指南与教程 | `ai-dev-guide/quick-start.md` |
+| `adr` | 架构决策记录 | `changelog/001_tts_solution.md`、`changelog/002_coral_tpu_tts_incompatible.md` |
+| `guide` | 操作指南与教程 | `rule/TDD.md` |
 | `reference` | 技术参考手册 | 待定 |
 | `concept` | 概念解释与项目概述 | `PROJECT_OVERVIEW.md` |
 
@@ -55,7 +55,7 @@ date: YYYY-MM-DD
 | field | 含义 | 适用文档 |
 |-------|------|----------|
 | `global` | 文档系统级，任意操作前必读 | `docs/RULE.md` |
-| `adr` | 架构决策相关工作 | `changelog/RULE.md`、`decisions/adr-*.md` |
+| `adr` | 架构决策相关工作 | `changelog/001_tts_solution.md` |
 | `code` | 代码编写 | `rule/code/coding_style.md` |
 | `security` | 安全相关 | `rule/security.md` |
 | `tts` | 语音合成相关 | `changelog/001_tts_solution.md` |

@@ -124,14 +124,19 @@ ufc-2026-backend/
 │   └── ...
 │
 ├── docs/                   # AI 友好的开发文档
-│   ├── ai-dev-guide/
-│   │   ├── PROJECT_OVERVIEW.md  # 本文件
-│   │   ├── project-structure.md  # （待更新）
-│   │   ├── quick-start.md
-│   │   └── technology-stack.md  # （待更新）
-│   ├── dspy-patterns/       # DSPy 模式指南
-│   ├── project-conventions/ # 编码规范
-│   └── troubleshooting/     # 常见问题指南
+│   ├── RULE.md            # 文档系统规则
+│   ├── PROJECT_OVERVIEW.md # 本文件
+│   ├── README.md          # 文档说明
+│   ├── changelog/          # 架构决策记录 (ADR)
+│   │   ├── RULE.md        # ADR 规范
+│   │   └── 001_tts_solution.md
+│   │   └── ...
+│   └── rule/               # 开发规则
+│       ├── SECURITY.md    # 安全规范
+│       ├── TDD.md         # TDD 工作流
+│       └── code/           # 代码规范
+│           ├── coding_style.md
+│           └── error_handling.md
 │
 ├── model/                  # LLM 模型文件 + 配置
 │   ├── LFM2.5-1.2B-Instruct-Q4_K_M.gguf
