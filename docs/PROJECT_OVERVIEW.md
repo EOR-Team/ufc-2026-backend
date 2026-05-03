@@ -74,83 +74,30 @@ pydantic
 python-dotenv
 ```
 
-## 4. 目录结构
+## 4. 核心入口点
 
-```
-ufc-2026-backend/
-├── src/                    # 业务代码
-│   ├── main.py            # FastAPI 入口，lifespan 管理（whisper-server, LLM 配置）
-│   ├── logger.py         # 彩色日志工具（info, debug, error）
-│   ├── utils.py          # Result 类型、ROOT_DIR 常量
-│   │
-│   ├── map/              # 医院地图模块
-│   │   ├── map.json      # 节点/边图数据（惰性加载）
-│   │   ├── typedef.py    # Pydantic 模型：Node, Edge, Map
-│   │   ├── tools.py      # get_map() 带模块级缓存
-│   │   ├── routes.py     # /map/* API 端点
-│   │   └── __init__.py
-│   │
-│   ├── car/               # 机器人底盘控制（mock/logging）
-│   │   ├── control.py    # forward, backward, turn, stop
-│   │   ├── adapter.py    # 硬件适配器接口
-│   │   ├── routes.py     # /car/* API 端点
-│   │   └── __init__.py
-│   │
-│   ├── triager/           # 分诊 + 路线修改 Agent
-│   │   ├── route_patcher.py  # DSPy CoT 路线修改
-│   │   ├── routing.py    # 主分诊路由器
-│   │   ├── clinic_selector.py
-│   │   ├── condition_collector.py
-│   │   ├── requirement_collector.py
-│   │   └── __init__.py
-│   │
-│   ├── voice/             # 语音模块
-│   │   ├── stt.py         # STT 路由器
-│   │   ├── tts.py         # TTS 路由器
-│   │   ├── whisper_manager.py  # whisper.cpp 生命周期管理
-│   │   └── piper_tts_service.py
-│   │
-│   └── llm/               # LLM 适配器
-│       ├── llama.py       # llama.cpp 封装 + DSPy LM 适配器
-│       ├── deepseek.py    # DeepSeek API 集成
-│       └── __init__.py
-│
-├── test/                   # pytest 测试（要求 80%+ 覆盖率）
-│   ├── test_route_patcher.py
-│   ├── test_clinic_selector.py
-│   ├── test_condition_collector.py
-│   ├── test_requirement_collector.py
-│   ├── test_medical_care.py
-│   └── ...
-│
-├── docs/                   # AI 友好的开发文档
-│   ├── RULE.md            # 文档系统规则
-│   ├── PROJECT_OVERVIEW.md # 本文件
-│   ├── README.md          # 文档说明
-│   ├── changelog/          # 架构决策记录 (ADR)
-│   │   ├── RULE.md        # ADR 规范
-│   │   └── 001_tts_solution.md
-│   │   └── ...
-│   └── rule/               # 开发规则
-│       ├── SECURITY.md    # 安全规范
-│       ├── TDD.md         # TDD 工作流
-│       └── code/           # 代码规范
-│           ├── coding_style.md
-│           └── error_handling.md
-│
-├── model/                  # LLM 模型文件 + 配置
-│   ├── LFM2.5-1.2B-Instruct-Q4_K_M.gguf
-│   ├── LFM2.5-1.2B-Instruct-Q4_K_M.llm.json
-│   └── LFM2.5-1.2B-Instruct-Q4_K_M.infer.json
-│
-├── tech_docs/              # 第三方库文档
-├── openspec/               # OpenSpec 配置驱动开发
-├── piper/                  # Piper TTS 模型
-├── outputs/                # 生成的输出文件（TTS 音频等）
-└── whisper.cpp/            # C++ STT 库（git 子模块）
-```
+| 文件/目录 | 职责 |
+|-----------|------|
+| `src/main.py` | FastAPI 入口，lifespan 管理（whisper-server、LLM 配置） |
+| `src/map/` | 医院地图模块，节点/边/最短路径 |
+| `src/triager/` | 分诊 + 路线修改 AI Agent |
+| `src/car/` | 机器人底盘控制（mock 模式） |
+| `src/voice/` | 语音模块 STT/TTS |
+| `src/llm/` | LLM 适配器（llama.cpp / DeepSeek） |
 
-### 核心入口点
+### 探索指南
+
+项目结构通过以下方式自行探索：
+
+- `Glob "src/**/*.py"` — 了解所有模块
+- `Read src/*/__init__.py` — 了解各模块职责
+- `Read src/main.py` — 了解应用入口和路由注册
+
+关键配置文件：
+- `.env` — 环境变量
+- `requirements.txt` — 依赖列表
+
+### 核心入口点详解
 
 #### 主应用 (`src/main.py`)
 
