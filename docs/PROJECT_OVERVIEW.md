@@ -89,13 +89,12 @@ python-dotenv
 
 项目结构通过以下方式自行探索：
 
-- `Glob "src/**/*.py"` — 了解所有模块
-- `Read src/*/__init__.py` — 了解各模块职责
+- `Bash ls src/` — 列出顶层模块目录
+- `Glob "src/**/*.py"` — 了解所有模块文件
+- `Grep "def " src/**/*.py` — 快速了解各模块暴露的函数
 - `Read src/main.py` — 了解应用入口和路由注册
 
-关键配置文件：
-- `.env` — 环境变量
-- `requirements.txt` — 依赖列表
+关键配置文件：`.env`、`requirements.txt`
 
 ### 核心入口点详解
 
