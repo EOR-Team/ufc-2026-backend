@@ -1,3 +1,10 @@
+---
+name: 常见错误处理指南
+category: reference
+field: code
+description: DSPy、LLM、Python、JSON 等常见错误的诊断与解决
+date: 2026-05-03
+---
 # Common Errors Guide
 
 This guide covers common errors in `ufc-2026-backend` and how to resolve them.

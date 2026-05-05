@@ -1,3 +1,10 @@
+---
+name: Piper TTS 树莓派 4B 部署调研报告
+category: reference
+field: tts
+description: Piper TTS 在树莓派 4B 上的部署详细步骤与性能参考
+date: 2026-05-03
+---
 # Piper TTS 树莓派 4B 部署调研报告
 
 > 调研时间：2026-04-25

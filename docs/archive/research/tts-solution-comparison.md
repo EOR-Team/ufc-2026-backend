@@ -1,3 +1,10 @@
+---
+name: TTS 方案对比调研报告
+category: reference
+field: tts
+description: Piper、espeak-ng、EdgeTTS、Coqui XTTS 方案对比与 Coral TPU 兼容性分析
+date: 2026-05-03
+---
 # TTS 方案对比调研报告
 
 > 调研时间：2026-04-25

@@ -3,17 +3,17 @@ name: 文档系统规则
 category: infra-rule
 field: global
 description: 定义文档元数据标准与修改要求
-date: 2026-05-02
+date: 2026-05-03
 ---
 
 # 文档系统规则
 
 **状态**: 已通过
-**更新**: 2026-05-02
+**更新**: 2026-05-03
 
 ---
 
-## 元数据标准
+## 文档头 Metadata
 
 所有 `docs/` 下的文档**必须**在文件头部声明 YAML frontmatter：
 

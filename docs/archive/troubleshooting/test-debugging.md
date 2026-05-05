@@ -1,3 +1,10 @@
+---
+name: 测试调试指南
+category: reference
+field: code
+description: pytest 用法、覆盖率、常见测试失败调试与 DSPy reasoning 调试技巧
+date: 2026-05-03
+---
 # Test Debugging Guide
 
 This guide covers debugging test failures in `ufc-2026-backend`.

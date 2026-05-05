@@ -1,3 +1,10 @@
+---
+name: Whisper.cpp WSL2 CUDA 部署记录
+category: reference
+field: stt
+description: WSL2 + RTX 2060 环境下 whisper.cpp CUDA 构建步骤与问题解决
+date: 2026-05-03
+---
 # Whisper.cpp WSL2 CUDA 部署记录
 
 ## 环境

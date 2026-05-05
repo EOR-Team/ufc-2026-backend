@@ -1,3 +1,10 @@
+---
+name: Whisper.cpp 边缘部署技术规格书
+category: reference
+field: stt
+description: Raspberry Pi 4B 部署 whisper.cpp 的架构、配置与性能预期
+date: 2026-05-03
+---
 # Whisper.cpp 边缘部署技术规格书
 
 ## 目标

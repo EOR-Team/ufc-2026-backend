@@ -1,3 +1,10 @@
+---
+name: Prompt Finetune 经验总结
+category: reference
+field: code
+description: DSPy Signature prompt 精简实验记录与经验法则
+date: 2026-05-03
+---
 # Prompt Finetune 经验总结
 
 ## 实验概述

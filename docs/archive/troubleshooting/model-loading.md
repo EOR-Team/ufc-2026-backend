@@ -1,3 +1,10 @@
+---
+name: GGUF 模型加载故障排除
+category: reference
+field: code
+description: 模型文件不存在、CUDA 版本、GPU 内存等问题的诊断与解决
+date: 2026-05-03
+---
 # Model Loading Troubleshooting
 
 This guide covers common issues with GGUF model loading in `ufc-2026-backend`.
