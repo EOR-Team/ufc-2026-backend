@@ -14,10 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from src.logger import info, error
-from src.whisper_manager import whisper_manager
-from src.stt import router as stt_router
-from src.tts import router as tts_router
+from src.voice.whisper_manager import whisper_manager
+from src.voice.stt import router as stt_router
+from src.voice.tts import router as tts_router
 from src.triager.routing import triager_router
+from src.car.routes import router as car_router
+from src.map.routes import router as map_router
 
 
 def parse_args():
@@ -70,6 +72,8 @@ app.add_middleware(
 app.include_router(stt_router, prefix="/stt", tags=["stt"])
 app.include_router(tts_router, prefix="/tts", tags=["tts"])
 app.include_router(triager_router, tags=["triager"])
+app.include_router(car_router)
+app.include_router(map_router)
 
 
 @app.get("/health")

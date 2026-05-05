@@ -8,8 +8,11 @@ from src.triager.route_patcher import (
     patch_route,
     RoutePatcherSignature,
     apply_patches,
-    AVAILABLE_LOCATIONS,
+    _get_available_locations,
+    _get_default_route,
+    _format_locations,
 )
+from src.map import get_map
 from src.llm.llama import LlamaCppLM
 from src.llm.deepseek import DeepseekLM
 
@@ -45,7 +48,58 @@ def llama_lm():
 # Test Cases
 # ============================================================================
 
-DEFAULT_ROUTE = ["entrance", "registration_center", "surgery_clinic", "payment_center", "pharmacy", "quit"]
+DEFAULT_ROUTE = _get_default_route()
+
+
+class TestLocationHelpers:
+    """测试新增的 location 辅助函数"""
+
+    def test_get_available_locations_keys_match_map(self):
+        """_get_available_locations() 的 keys 应与 map.json 一致"""
+        locs = _get_available_locations()
+        map_data = get_map()
+        main_ids = map_data.get_main_node_ids()
+        assert set(locs.keys()) == set(main_ids)
+
+    def test_get_available_locations_no_print_shop(self):
+        """print_shop 不在 map.json 中，不应出现在结果中"""
+        locs = _get_available_locations()
+        assert "print_shop" not in locs
+
+    def test_get_available_locations_descriptions_not_empty(self):
+        """所有 main 节点都有非空描述"""
+        locs = _get_available_locations()
+        for loc_id, desc in locs.items():
+            assert desc is not None and len(desc) > 0, f"{loc_id} has empty description"
+
+    def test_get_default_route_returns_6_nodes(self):
+        """默认路线应返回 6 个节点"""
+        route = _get_default_route()
+        assert len(route) == 6
+
+    def test_get_default_route_all_nodes_exist_in_map(self):
+        """默认路线中的所有节点都存在于 map.json"""
+        route = _get_default_route()
+        map_data = get_map()
+        node_ids = {n.id for n in map_data.nodes}
+        for node_id in route:
+            assert node_id in node_ids, f"node {node_id} not found in map"
+
+    def test_get_default_route_sorted_by_coordinates(self):
+        """默认路线按 (y, x) 升序排列"""
+        route = _get_default_route()
+        map_data = get_map()
+        node_dict = {n.id: n for n in map_data.nodes}
+        coords = [(node_dict[nid].y, node_dict[nid].x) for nid in route]
+        assert coords == sorted(coords), f"route not sorted: {coords}"
+
+    def test_format_locations_returns_valid_format(self):
+        """_format_locations() 输出格式正确"""
+        output = _format_locations()
+        lines = output.split("\n")
+        for line in lines:
+            assert line.startswith("- "), f"line doesn't start with '- ': {line}"
+            assert ": " in line, f"line missing ': ': {line}"
 
 
 class TestRoutePatcherSignature:
