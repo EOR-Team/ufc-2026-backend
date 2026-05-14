@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from src.llm.llama import LlamaCppLM
         dspy.configure(lm=LlamaCppLM(
             model_id="main-lm",
-            model_filename="Qwen_Qwen3.5-2B-Q4_K_M"
+            model_filename="Qwen3.5-0.8B-Q4_K_M"
         ))
         info("Using local LLM: Qwen")
     yield

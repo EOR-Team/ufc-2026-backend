@@ -105,6 +105,12 @@ class LlamaCppLM(dspy.LM):
         # DSPy 期望 lm.model 是字符串，但实际 llama 对象需要存储为其他名称
         self._llama_model = self.model
         self.model = f"llama-cpp/{model_id}"  # DSPy adapter 期望的格式
+
+        # Warmup - absorbs cold-start dequantization/cache-init costs
+        self._llama_model.create_chat_completion(
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=1
+        )
     
 
     def forward(self, prompt=None, messages=None, **kwargs):
