@@ -30,7 +30,21 @@ class Edge(BaseModel):
 class Map(BaseModel):
     """Complete map structure with nodes and edges."""
     nodes: list[Node] = Field(..., description="List of all map nodes")
-    edges: list[Edge] = Field(..., description="List of all map edges")
+    edges: list[Edge] = Field(default_factory=list, description="List of all map edges")
+
+    def model_post_init(self, __context) -> None:
+        self._build_edges()
+
+    def _build_edges(self) -> None:
+        """Build edges from node adjacency: |dx|+|dy| == 1, cost = 1."""
+        result: list[Edge] = []
+        for i, u in enumerate(self.nodes):
+            for j, v in enumerate(self.nodes):
+                if i >= j:
+                    continue
+                if abs(u.x - v.x) + abs(u.y - v.y) == 1:
+                    result.append(Edge(u=u.id, v=v.id, cost=1))
+        self.edges = result
 
     def get_main_node_ids(self) -> list[str]:
         """Get IDs of all main (non-nav) nodes."""

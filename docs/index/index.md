@@ -3,7 +3,7 @@ name: 文档索引
 category: infra-rule
 field: global
 description: 快速索引 docs/ 中的各类规则文档
-date: 2026-05-03
+date: 2026-05-20
 ---
 
 # 文档索引
@@ -72,6 +72,7 @@ date: 2026-05-03
 | [changelog/008_tts_research.md](./changelog/008_tts_research.md) | `adr` | TTS 研究进展 |
 | [changelog/009_model_troubleshooting.md](./changelog/009_model_troubleshooting.md) | `adr` | 模型问题排查记录 |
 | [changelog/010_stt_deployment.md](./changelog/010_stt_deployment.md) | `adr` | STT 部署方案 |
+| [changelog/011_map_runtime_graph.md](./changelog/011_map_runtime_graph.md) | `adr` | Map 模块运行时图构建重构，消除 car/map 循环依赖 |
 
 ---
 

@@ -17,7 +17,7 @@ from src.car import (
     is_hardware_available,
     Robot,
 )
-from src.car.adapter import path_to_commands
+from src.map import get_commands
 from src.car.control import forward as _forward_raw
 
 
@@ -196,52 +196,44 @@ class TestCombinedMovements:
 class TestAdapterIntegration:
     """路径→指令适配器集成测试"""
 
-    def test_path_to_commands_simple(self):
-        """entrance → toilet 生成有效指令序列"""
-        commands = path_to_commands(["entrance", "toilet"])
+    def test_get_commands_simple(self):
+        """entrance → quit 生成有效指令序列"""
+        commands = get_commands("entrance", "quit")
         assert isinstance(commands, list)
         assert len(commands) > 0
-        for action, param in commands:
-            assert action in ("forward", "turn", "stop")
+        for cmd in commands:
+            assert cmd["action"] in ("forward", "turn", "stop")
 
-    def test_path_to_commands_single_node(self):
-        """单节点路径返回空列表"""
-        commands = path_to_commands(["entrance"])
+    def test_get_commands_same_start_end(self):
+        """同起点终点返回空列表"""
+        commands = get_commands("entrance", "entrance")
         assert commands == []
 
-    def test_path_to_commands_unknown_nodes(self):
-        """未知节点路径返回空列表"""
-        commands = path_to_commands(["mars", "jupiter"])
+    def test_get_commands_unknown_nodes(self):
+        """未知节点返回空列表"""
+        commands = get_commands("mars", "jupiter")
         assert commands == []
 
-    def test_execute_adapter_commands(self):
-        """执行 path_to_commands 输出的指令序列"""
-        commands = path_to_commands(["entrance", "registration_center", "pharmacy", "quit"])
+    def test_execute_commands(self):
+        """执行 get_commands 输出的指令序列"""
+        commands = get_commands("entrance", "surgery_clinic")
         assert len(commands) > 0
-        for action, param in commands:
-            if action == "forward":
-                forward(param)
-            elif action == "turn":
-                turn(int(param))
-            elif action == "stop":
+        for cmd in commands:
+            if cmd["action"] == "forward":
+                forward(cmd["param"])
+            elif cmd["action"] == "turn":
+                turn(int(cmd["param"]))
+            elif cmd["action"] == "stop":
                 stop()
 
-    def test_path_to_commands_all_main_nodes(self):
-        """完整路线: 入口 → 挂号 → 诊室 → 缴费 → 药房 → 出口"""
-        route = [
-            "entrance",
-            "registration_center",
-            "surgery_clinic",
-            "payment_center",
-            "pharmacy",
-            "quit",
-        ]
-        commands = path_to_commands(route)
-        for action, param in commands:
-            if action == "forward":
-                forward(param)
-            elif action == "turn":
-                turn(int(param))
+    def test_get_commands_cross_floor(self):
+        """跨多段路线: 入口 → 急诊（从底部到顶部）"""
+        commands = get_commands("entrance", "emergency_clinic")
+        for cmd in commands:
+            if cmd["action"] == "forward":
+                forward(cmd["param"])
+            elif cmd["action"] == "turn":
+                turn(int(cmd["param"]))
         stop()
 
 

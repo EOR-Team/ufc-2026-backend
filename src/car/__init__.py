@@ -1,6 +1,6 @@
 """
 car/__init__.py
-Car control module — direct control and path-to-commands adapter.
+Car control module — direct hardware control.
 
 Usage:
     # Direct control (sync functions, works on both Pi and dev machines)
@@ -20,17 +20,15 @@ Usage:
     await Robot.forward(3.0)
     await Robot.turn_left(90)
 
-    # Path to commands conversion
-    from src.car.adapter import path_to_commands
+    # Path-to-commands conversion (moved to src.map)
+    from src.map import get_commands
 
-    commands = path_to_commands(["entrance", "toilet"])
-    for action, param in commands:
-        if action == "forward":
-            forward(param)
-        elif action == "turn":
-            turn(int(param))
-        elif action == "stop":
-            stop()
+    commands = get_commands("entrance", "surgery_clinic")
+    for cmd in commands:
+        if cmd["action"] == "forward":
+            forward(cmd["param"])
+        elif cmd["action"] == "turn":
+            turn(int(cmd["param"]))
 """
 
 from src.car.control import forward, backward, turn, stop

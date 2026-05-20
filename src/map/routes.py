@@ -5,32 +5,34 @@ FastAPI router for map-related endpoints.
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Literal
 
-from src.car.adapter import path_to_commands
+from src.map.tools import get_commands
 
 router = APIRouter(prefix="/map", tags=["map"])
 
 
-class TranslateRequest(BaseModel):
-    path: list[str]
+class CommandsRequest(BaseModel):
+    start: str
+    end: str
 
 
-class TranslateItem(BaseModel):
-    action: Literal["forward", "turn", "stop"]
+class CommandsItem(BaseModel):
+    action: str
     param: float
 
 
-@router.post("/translate")
-def translate_path(body: TranslateRequest) -> list[TranslateItem]:
+@router.post("/commands")
+def route_get_commands(body: CommandsRequest) -> list[CommandsItem]:
     """
-    Convert a map node path to car control command sequence.
+    Get car control commands for a single-segment route between two nodes.
 
     Body:
-        path: List of node IDs, e.g. ["entrance", "toilet"]
+        start: Starting node ID (e.g. "entrance")
+        end: Ending node ID (e.g. "surgery_clinic")
 
     Returns:
-        List of {action, param} dicts, e.g. [{"action": "forward", "param": 4.0}, ...]
+        List of {action, param} dicts, e.g.:
+            [{"action": "forward", "param": 3.0}, {"action": "turn", "param": -90}]
     """
-    commands = path_to_commands(body.path)
-    return [TranslateItem(action=a, param=p) for a, p in commands]
+    commands = get_commands(body.start, body.end)
+    return [CommandsItem(**cmd) for cmd in commands]
