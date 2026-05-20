@@ -34,8 +34,8 @@ def test_start_navigate():
 
     assert resp.status_code == 200, f"请求失败: {resp.status_code}"
     assert data["success"] is True, f"导航启动失败: {data['message']}"
-    assert len(data["path"]) > 0, "路径为空"
-    print(f"  路径: {' → '.join(data['path'])}")
+    assert len(data["commands"]) > 0, "指令为空"
+    print(f"  指令: {data['commands']}")
     print()
     return data
 

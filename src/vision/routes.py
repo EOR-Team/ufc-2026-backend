@@ -30,7 +30,7 @@ class NavigateRequest(BaseModel):
 class NavigateResponse(BaseModel):
     success: bool
     message: str
-    path: list[str] = []
+    commands: list[dict] = []
 
 
 @router.post("/start_navigate", response_model=NavigateResponse)
@@ -38,7 +38,7 @@ def start_navigate(request: NavigateRequest) -> NavigateResponse:
     """
     Start line-following navigation from start to destination.
 
-    Computes path using map module, then starts the navigator in a background thread.
+    Uses get_commands() to plan route, then starts the navigator.
     """
     global _navigator, _navigator_thread
 
@@ -48,38 +48,26 @@ def start_navigate(request: NavigateRequest) -> NavigateResponse:
             message="Navigation already in progress. Stop first."
         )
 
-    # Compute path from map
-    map_commands = get_commands(request.start, request.destination)
-    if not map_commands:
-        return NavigateResponse(
-            success=False,
-            message=f"No path found from {request.start} to {request.destination}"
-        )
-
-    # Convert commands to node path
-    # get_commands returns [{action, param}], but we need the node sequence
-    # Use map.dijkstra directly for the node path
-    from src.map import get_map
-    map_data = get_map()
-    path = map_data.dijkstra(request.start, request.destination)
-    if not path:
+    # Plan route using get_commands()
+    commands = get_commands(request.start, request.destination)
+    if not commands:
         return NavigateResponse(
             success=False,
             message=f"No path found from {request.start} to {request.destination}"
         )
 
     _navigator = Navigator(camera_id=request.camera_id)
-    _navigator.set_path(path)
+    _navigator.set_commands(commands)
 
     # Run in background thread
     _navigator_thread = threading.Thread(target=_navigator.run, daemon=True)
     _navigator_thread.start()
 
-    info(f"[Vision] Navigation started: {request.start} → {request.destination}")
+    info(f"[Vision] Navigation started: {request.start} → {request.destination}, {len(commands)} commands")
     return NavigateResponse(
         success=True,
         message=f"Navigation started: {request.start} → {request.destination}",
-        path=path,
+        commands=commands,
     )
 
 
@@ -101,7 +89,9 @@ def navigation_status() -> dict:
         return {
             "active": True,
             "state": _navigator._state.name,
-            "current_step": _navigator._current_step,
-            "total_steps": len(_navigator._path),
+            "current_command": _navigator._cmd_idx,
+            "total_commands": len(_navigator._commands),
+            "intersections_passed": _navigator._intersections_passed,
+            "intersections_target": _navigator._intersections_target,
         }
     return {"active": False}

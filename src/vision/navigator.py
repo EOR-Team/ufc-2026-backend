@@ -2,9 +2,12 @@
 vision/navigator.py
 Line-following navigation controller.
 
-Integrates LineDetector, PIDController, and IntersectionDetector to
-navigate a black-line course. At intersections, uses pre-planned path
-to decide turn direction.
+Consumes get_commands() output directly: [{action: "forward"|"turn", param: float}].
+- "forward" param = Manhattan distance → number of intersections to pass
+- "turn" param = angle → execute fixed turn at intersection
+
+State machine:
+    FOLLOW_LINE → 检测到路口 → CROSSING（过路口）→ TURNING（转向）→ FOLLOW_LINE → ... → DONE
 """
 
 import time
@@ -23,13 +26,13 @@ INTERSECTION_FORWARD_TIME: Final[float] = 1.5   # seconds to cross intersection 
 TURN_DURATION_90: Final[float] = 1.0             # seconds for 90-degree turn
 LINE_FOLLOW_BASE_SPEED: Final[int] = 20          # base motor speed (0-100)
 INTERSECTION_COOLDOWN: Final[float] = 2.0        # seconds to ignore after handling intersection
+TURN_SPEED: Final[int] = 30                      # motor speed for turning (0-100)
 
 
 class NavState(Enum):
     """Navigation state machine states."""
     IDLE = auto()
     FOLLOW_LINE = auto()
-    AT_INTERSECTION = auto()
     CROSSING = auto()
     TURNING = auto()
     DONE = auto()
@@ -38,11 +41,14 @@ class NavState(Enum):
 
 class Navigator:
     """
-    Line-following navigator with pre-planned path execution.
+    Line-following navigator that directly executes get_commands() output.
 
     Usage:
+        from src.map import get_commands
+
         nav = Navigator()
-        nav.set_path(["entrance", "road_2_9", "road_2_7", "pharmacy"])
+        commands = get_commands("entrance", "pharmacy")
+        nav.set_commands(commands)
         nav.run()
     """
 
@@ -51,65 +57,48 @@ class Navigator:
         self._pid = PIDController()
         self._intersection_detector = IntersectionDetector()
 
-        self._path: list[str] = []
-        self._current_step: int = 0  # index of next intersection to handle
+        self._commands: list[dict] = []         # [{action, param}]
+        self._cmd_idx: int = 0                  # current command index
+        self._intersections_passed: int = 0     # intersections passed in current forward segment
+        self._intersections_target: int = 0     # how many to pass before next turn
         self._state = NavState.IDLE
         self._last_intersection_time: float = 0.0
 
-    def set_path(self, path: list[str]) -> None:
+    def set_commands(self, commands: list[dict]) -> None:
         """
-        Set the navigation path as a list of node IDs.
+        Set commands from get_commands() output.
 
         Args:
-            path: Ordered list of node IDs, e.g. ["entrance", "road_2_9", "road_2_7", "pharmacy"]
-                  The car follows the line and turns at each intermediate node.
+            commands: [{action: "forward"|"turn", param: float}]
+                      forward param = Manhattan distance (1.0 = one edge = one intersection)
+                      turn param = angle in degrees (positive = right, negative = left)
         """
-        self._path = path
-        self._current_step = 0
+        self._commands = commands
+        self._cmd_idx = 0
         self._state = NavState.IDLE
-        info(f"[Navigator] Path set: {path}")
+        info(f"[Navigator] Commands set: {commands}")
 
-    def _get_turn_direction(self) -> str:
+    def _prepare_next_forward(self) -> bool:
         """
-        Determine turn direction at current intersection based on path.
+        Set up the next forward segment by counting intersections to pass.
 
-        Compares positions of previous, current, and next nodes to decide.
-        Returns: "left", "right", or "forward"
+        Returns:
+            True if there's a forward segment to execute, False if no more commands.
         """
-        if self._current_step < 1 or self._current_step >= len(self._path) - 1:
-            return "forward"
+        self._intersections_passed = 0
+        self._intersections_target = 0
 
-        from src.map import get_map
-        map_data = get_map()
-        node_dict = {n.id: n for n in map_data.nodes}
+        # Count intersections from consecutive forward commands
+        while self._cmd_idx < len(self._commands):
+            cmd = self._commands[self._cmd_idx]
+            if cmd["action"] == "forward":
+                # Each 1.0 Manhattan distance = one edge = one intersection to pass
+                self._intersections_target += int(round(cmd["param"]))
+                self._cmd_idx += 1
+            else:
+                break
 
-        prev_id = self._path[self._current_step - 1]
-        curr_id = self._path[self._current_step]
-        next_id = self._path[self._current_step + 1]
-
-        prev = node_dict.get(prev_id)
-        curr = node_dict.get(curr_id)
-        next_node = node_dict.get(next_id)
-
-        if not all([prev, curr, next_node]):
-            return "forward"
-
-        # Direction vectors
-        dx_in = curr.x - prev.x
-        dy_in = curr.y - prev.y
-        dx_out = next_node.x - curr.x
-        dy_out = next_node.y - curr.y
-
-        # Cross product to determine turn direction
-        # In coordinate system: x=right, y=down
-        cross = dx_in * dy_out - dy_in * dx_out
-
-        if cross > 0:
-            return "right"
-        elif cross < 0:
-            return "left"
-        else:
-            return "forward"
+        return self._intersections_target > 0
 
     def stop(self) -> None:
         """Emergency stop."""
@@ -120,17 +109,24 @@ class Navigator:
 
     def run(self) -> None:
         """
-        Main navigation loop. Blocks until path is complete or stopped.
+        Main navigation loop. Blocks until all commands are executed or stopped.
 
-        State machine:
-            IDLE → FOLLOW_LINE → AT_INTERSECTION → CROSSING → TURNING → FOLLOW_LINE → ... → DONE
+        Executes get_commands() sequence:
+            forward N → 巡线经过 N 个路口
+            turn ±90 → 路口固定转向
         """
-        if not self._path or len(self._path) < 2:
-            warning("[Navigator] No valid path set")
+        if not self._commands:
+            warning("[Navigator] No commands set")
             return
 
         if not self._line_detector.open():
             error("[Navigator] Failed to open camera")
+            return
+
+        # Prepare first forward segment
+        if not self._prepare_next_forward():
+            warning("[Navigator] No forward commands at start")
+            self._line_detector.close()
             return
 
         self._state = NavState.FOLLOW_LINE
@@ -138,7 +134,8 @@ class Navigator:
         self._intersection_detector.reset()
         self._last_intersection_time = 0.0
 
-        info(f"[Navigator] Starting navigation: {self._path[0]} → {self._path[-1]}")
+        info(f"[Navigator] Starting: {len(self._commands)} commands, "
+             f"first segment: {self._intersections_target} intersections")
 
         try:
             while self._state not in (NavState.DONE, NavState.STOPPED):
@@ -151,16 +148,10 @@ class Navigator:
 
     def _tick(self) -> None:
         """Single iteration of the navigation loop."""
-
         if self._state == NavState.FOLLOW_LINE:
             self._tick_follow_line()
-
-        elif self._state == NavState.AT_INTERSECTION:
-            self._tick_at_intersection()
-
         elif self._state == NavState.CROSSING:
             self._tick_crossing()
-
         elif self._state == NavState.TURNING:
             self._tick_turning()
 
@@ -184,71 +175,99 @@ class Navigator:
             )
             if at_intersection:
                 Robot.stop()
-                self._state = NavState.AT_INTERSECTION
-                info(f"[Navigator] At intersection, step {self._current_step}/{len(self._path) - 1}")
+                self._state = NavState.CROSSING
+                self._intersections_passed += 1
+                info(f"[Navigator] Intersection {self._intersections_passed}/{self._intersections_target}")
                 return
 
         # PID line following
         left_speed, right_speed = self._pid.compute(deviation)
         self._set_differential_speed(left_speed, right_speed)
 
-    def _tick_at_intersection(self) -> None:
-        """Handle intersection: cross it with fixed forward movement."""
-        self._current_step += 1
-
-        if self._current_step >= len(self._path) - 1:
-            # Reached destination
-            Robot.stop()
-            self._state = NavState.DONE
-            info("[Navigator] Destination reached!")
-            return
-
-        turn_dir = self._get_turn_direction()
-        info(f"[Navigator] Intersection {self._current_step}: turning {turn_dir}")
-
+    def _tick_crossing(self) -> None:
+        """
+        Cross through intersection with fixed forward movement.
+        Then decide: more intersections in this segment → continue,
+        or next command is a turn → execute turn, or done.
+        """
         # Move forward to cross intersection center
         Robot.t_up(LINE_FOLLOW_BASE_SPEED)
         time.sleep(INTERSECTION_FORWARD_TIME)
         Robot.stop()
         self._last_intersection_time = time.time()
 
-        if turn_dir == "forward":
-            # No turn needed, go straight through
-            self._state = NavState.FOLLOW_LINE
+        # Check if we've passed enough intersections for current forward segment
+        if self._intersections_passed < self._intersections_target:
+            # More intersections to pass in this segment
             self._intersection_detector.reset()
             self._pid.reset()
-        else:
-            self._state = NavState.TURNING
-            self._pending_turn = turn_dir
+            self._state = NavState.FOLLOW_LINE
+            return
 
-    def _tick_crossing(self) -> None:
-        """Cross through intersection (currently handled in _tick_at_intersection)."""
-        self._state = NavState.FOLLOW_LINE
+        # Forward segment complete — look for next turn command
+        turn_angle = self._get_next_turn()
+
+        if turn_angle is None:
+            # No more commands — done
+            self._state = NavState.DONE
+            info("[Navigator] All commands executed, destination reached!")
+            return
+
+        # Execute turn
+        self._pending_turn_angle = turn_angle
+        self._state = NavState.TURNING
+
+    def _get_next_turn(self) -> float | None:
+        """
+        Consume the next turn command from the command list.
+
+        Returns:
+            Turn angle (positive = right, negative = left), or None if no more turns.
+        """
+        while self._cmd_idx < len(self._commands):
+            cmd = self._commands[self._cmd_idx]
+            if cmd["action"] == "turn":
+                self._cmd_idx += 1
+                return cmd["param"]
+            elif cmd["action"] == "forward":
+                # Next forward segment — prepare it and return None (no turn needed yet)
+                self._prepare_next_forward()
+                return None
+        return None
 
     def _tick_turning(self) -> None:
         """Execute a fixed-angle turn at intersection."""
-        turn_dir = self._pending_turn
+        angle = self._pending_turn_angle
 
-        if turn_dir == "left":
-            Robot.turnLeft(30)
-        elif turn_dir == "right":
-            Robot.turnRight(30)
+        if angle > 0:
+            Robot.turnRight(TURN_SPEED)
+            direction = "right"
+        elif angle < 0:
+            Robot.turnLeft(TURN_SPEED)
+            direction = "left"
+        else:
+            direction = "forward"
 
-        time.sleep(TURN_DURATION_90)
+        # Turn for duration proportional to angle
+        duration = abs(angle) / 90.0 * TURN_DURATION_90
+        time.sleep(duration)
         Robot.stop()
         self._last_intersection_time = time.time()
 
-        # Reset detectors and resume line following
+        # After turn, prepare next forward segment
+        has_next = self._prepare_next_forward()
         self._intersection_detector.reset()
         self._pid.reset()
-        self._state = NavState.FOLLOW_LINE
 
-        info(f"[Navigator] Turned {turn_dir}, resuming line follow")
+        if has_next:
+            self._state = NavState.FOLLOW_LINE
+            info(f"[Navigator] Turned {direction} {abs(angle)}°, next: {self._intersections_target} intersections")
+        else:
+            self._state = NavState.DONE
+            info(f"[Navigator] Turned {direction} {abs(angle)}°, all commands done")
 
     def _set_differential_speed(self, left: int, right: int) -> None:
         """Set left/right motor speeds for differential steering."""
-        # Motors 0,1 = left side; motors 2,3 = right side
-        # (adjust based on actual wiring)
         Robot._bot.MotorRun(0, 'forward', left)
         Robot._bot.MotorRun(1, 'forward', left)
         Robot._bot.MotorRun(2, 'forward', right)
