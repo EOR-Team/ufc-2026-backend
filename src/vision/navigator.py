@@ -14,7 +14,7 @@ import time
 from enum import Enum, auto
 from typing import Final
 
-from src.logger import info, warning, error
+from src.logger import info, warning, error, debug
 from src.vision.line_detector import LineDetector
 from src.vision.pid_controller import PIDController
 from src.vision.intersection_detector import IntersectionDetector
@@ -27,6 +27,7 @@ TURN_DURATION_90: Final[float] = 1.0             # seconds for 90-degree turn
 LINE_FOLLOW_BASE_SPEED: Final[int] = 20          # base motor speed (0-100)
 INTERSECTION_COOLDOWN: Final[float] = 2.0        # seconds to ignore after handling intersection
 TURN_SPEED: Final[int] = 30                      # motor speed for turning (0-100)
+LOG_INTERVAL: Final[int] = 30                    # log every N frames during line following
 
 
 class NavState(Enum):
@@ -63,6 +64,9 @@ class Navigator:
         self._intersections_target: int = 0     # how many to pass before next turn
         self._state = NavState.IDLE
         self._last_intersection_time: float = 0.0
+        self._frame_count: int = 0              # total frames processed
+        self._tick_count: int = 0               # ticks in current state
+        self._start_time: float = 0.0           # navigation start timestamp
 
     def set_commands(self, commands: list[dict]) -> None:
         """
@@ -102,10 +106,13 @@ class Navigator:
 
     def stop(self) -> None:
         """Emergency stop."""
+        elapsed = time.time() - self._start_time if self._start_time > 0 else 0
+        info(f"[Navigator] ===== 紧急停止 =====")
+        info(f"[Navigator] 状态={self._state.name}, 帧数={self._frame_count}, "
+             f"耗时={elapsed:.1f}s, 指令进度={self._cmd_idx}/{len(self._commands)}")
         self._state = NavState.STOPPED
         Robot.stop()
         self._line_detector.close()
-        info("[Navigator] Stopped")
 
     def run(self) -> None:
         """
@@ -133,15 +140,24 @@ class Navigator:
         self._pid.reset()
         self._intersection_detector.reset()
         self._last_intersection_time = 0.0
+        self._frame_count = 0
+        self._tick_count = 0
+        self._start_time = time.time()
 
-        info(f"[Navigator] Starting: {len(self._commands)} commands, "
-             f"first segment: {self._intersections_target} intersections")
+        info(f"[Navigator] ===== 启动导航 =====")
+        info(f"[Navigator] 总指令数: {len(self._commands)}, 首段路口数: {self._intersections_target}")
+        info(f"[Navigator] 指令序列: {self._commands}")
+        info(f"[Navigator] 标定参数: base_speed={LINE_FOLLOW_BASE_SPEED}, "
+             f"cross_time={INTERSECTION_FORWARD_TIME}s, "
+             f"turn_time={TURN_DURATION_90}s, turn_speed={TURN_SPEED}")
+        info(f"[Navigator] ====================")
 
         try:
             while self._state not in (NavState.DONE, NavState.STOPPED):
                 self._tick()
         except KeyboardInterrupt:
-            info("[Navigator] Interrupted by user")
+            elapsed = time.time() - self._start_time
+            info(f"[Navigator] 用户中断, 帧数={self._frame_count}, 耗时={elapsed:.1f}s")
         finally:
             Robot.stop()
             self._line_detector.close()
@@ -161,6 +177,9 @@ class Navigator:
         if frame is None:
             return
 
+        self._frame_count += 1
+        self._tick_count += 1
+
         deviation, line_detected = self._line_detector.detect(frame)
 
         # Preprocess for intersection detector
@@ -177,12 +196,27 @@ class Navigator:
                 Robot.stop()
                 self._state = NavState.CROSSING
                 self._intersections_passed += 1
-                info(f"[Navigator] Intersection {self._intersections_passed}/{self._intersections_target}")
+                elapsed = now - self._start_time
+                info(f"[Navigator] >>> 检测到路口! "
+                     f"路口进度: {self._intersections_passed}/{self._intersections_target}, "
+                     f"指令进度: {self._cmd_idx}/{len(self._commands)}, "
+                     f"已运行: {elapsed:.1f}s")
+                self._tick_count = 0
                 return
 
         # PID line following
         left_speed, right_speed = self._pid.compute(deviation)
         self._set_differential_speed(left_speed, right_speed)
+
+        # Periodic runtime log
+        if self._frame_count % LOG_INTERVAL == 0:
+            elapsed = now - self._start_time
+            debug(f"[Navigator] [巡线] frame={self._frame_count} "
+                  f"偏差={deviation:+.3f} 检线={'Y' if line_detected else 'N'} "
+                  f"电机L={left_speed} R={right_speed} "
+                  f"路口={self._intersections_passed}/{self._intersections_target} "
+                  f"指令={self._cmd_idx}/{len(self._commands)} "
+                  f"耗时={elapsed:.1f}s")
 
     def _tick_crossing(self) -> None:
         """
@@ -190,6 +224,9 @@ class Navigator:
         Then decide: more intersections in this segment → continue,
         or next command is a turn → execute turn, or done.
         """
+        info(f"[Navigator] [过路口] 直行 {INTERSECTION_FORWARD_TIME}s, "
+             f"速度={LINE_FOLLOW_BASE_SPEED}")
+
         # Move forward to cross intersection center
         Robot.t_up(LINE_FOLLOW_BASE_SPEED)
         time.sleep(INTERSECTION_FORWARD_TIME)
@@ -199,9 +236,11 @@ class Navigator:
         # Check if we've passed enough intersections for current forward segment
         if self._intersections_passed < self._intersections_target:
             # More intersections to pass in this segment
+            info(f"[Navigator] [过路口] 还需经过 {self._intersections_target - self._intersections_passed} 个路口")
             self._intersection_detector.reset()
             self._pid.reset()
             self._state = NavState.FOLLOW_LINE
+            self._tick_count = 0
             return
 
         # Forward segment complete — look for next turn command
@@ -210,12 +249,15 @@ class Navigator:
         if turn_angle is None:
             # No more commands — done
             self._state = NavState.DONE
-            info("[Navigator] All commands executed, destination reached!")
+            elapsed = time.time() - self._start_time
+            info(f"[Navigator] ===== 导航完成 =====")
+            info(f"[Navigator] 总帧数: {self._frame_count}, 总耗时: {elapsed:.1f}s")
             return
 
         # Execute turn
         self._pending_turn_angle = turn_angle
         self._state = NavState.TURNING
+        info(f"[Navigator] [过路口] 段完成, 准备转向: {turn_angle}°")
 
     def _get_next_turn(self) -> float | None:
         """
@@ -238,6 +280,7 @@ class Navigator:
     def _tick_turning(self) -> None:
         """Execute a fixed-angle turn at intersection."""
         angle = self._pending_turn_angle
+        duration = abs(angle) / 90.0 * TURN_DURATION_90
 
         if angle > 0:
             Robot.turnRight(TURN_SPEED)
@@ -248,8 +291,10 @@ class Navigator:
         else:
             direction = "forward"
 
+        info(f"[Navigator] [转向] {direction} {abs(angle)}°, "
+             f"速度={TURN_SPEED}, 时长={duration:.2f}s")
+
         # Turn for duration proportional to angle
-        duration = abs(angle) / 90.0 * TURN_DURATION_90
         time.sleep(duration)
         Robot.stop()
         self._last_intersection_time = time.time()
@@ -258,13 +303,16 @@ class Navigator:
         has_next = self._prepare_next_forward()
         self._intersection_detector.reset()
         self._pid.reset()
+        self._tick_count = 0
 
         if has_next:
             self._state = NavState.FOLLOW_LINE
-            info(f"[Navigator] Turned {direction} {abs(angle)}°, next: {self._intersections_target} intersections")
+            info(f"[Navigator] [转向] 完成, 下一段: {self._intersections_target} 个路口")
         else:
             self._state = NavState.DONE
-            info(f"[Navigator] Turned {direction} {abs(angle)}°, all commands done")
+            elapsed = time.time() - self._start_time
+            info(f"[Navigator] ===== 导航完成 =====")
+            info(f"[Navigator] 总帧数: {self._frame_count}, 总耗时: {elapsed:.1f}s")
 
     def _set_differential_speed(self, left: int, right: int) -> None:
         """Set left/right motor speeds for differential steering."""
