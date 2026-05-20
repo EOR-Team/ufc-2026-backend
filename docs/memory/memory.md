@@ -43,3 +43,6 @@ date: 2026-05-03
 ### 待确认
 - [ ] Context Snapshot 的最佳粒度（按主题？按时间？）
 - [ ] 是否需要定期清理旧 snapshot？
+
+### 开发环境
+- [ ] 使用 pyenv 管理 Python 3.11.2

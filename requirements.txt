@@ -16,3 +16,6 @@ python-multipart
 
 # utils
 pydantic
+
+# opencv
+opencv-python
