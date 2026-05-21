@@ -49,9 +49,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from src.llm.llama import LlamaCppLM
         dspy.configure(lm=LlamaCppLM(
             model_id="main-lm",
-            model_filename="Qwen3.5-0.8B-Q4_K_M"
+            model_filename="LFM2.5-1.2B-Instruct-Q4_K_M"
         ))
-        info("Using local LLM: Qwen")
+        info("Using local LLM: LFM")
     yield
     # Shutdown
     whisper_manager.stop()

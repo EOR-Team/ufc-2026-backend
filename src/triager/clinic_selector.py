@@ -9,46 +9,37 @@
 import dspy
 
 from src import logger
+from src.map.tools import get_map
 
 
-DEFAULT_CLINIC_ID = "emergency_clinic"
-VALID_CLINIC_IDS = {
-    "emergency_clinic",
-    "surgery_clinic",
-    "internal_clinic",
-    "pediatric_clinic",
-}
+def _get_clinic_ids() -> list[str]:
+    """从地图数据中动态获取所有以 _clinic 结尾的 main 节点 ID。"""
+    all_main_ids = get_map().get_main_node_ids()
+    return sorted([nid for nid in all_main_ids if nid.endswith("_clinic")])
+
+
+_CLINIC_IDS: list[str] = _get_clinic_ids()
+_clinic_ids_str: str = " ".join(_CLINIC_IDS)
+
+DEFAULT_CLINIC_ID: str = _CLINIC_IDS[0] if _CLINIC_IDS else "emergency_clinic"
+VALID_CLINIC_IDS: set[str] = set(_CLINIC_IDS)
 
 
 class ClinicSelectorSignature(dspy.Signature):
-    """根据患者症状选择合适的诊室"""
+    """Select clinic: pediatric_clinic(child<14), emergency_clinic(severe), surgery_clinic(surgical), internal_clinic(default). Examples: fever cough adult→internal_clinic | severe chest pain→emergency_clinic | child fever→pediatric_clinic | broken bone→surgery_clinic"""
 
-    body_parts: str = dspy.InputField(
-        desc = "the body parts affected by the symptoms"
-    )
-
-    duration: str = dspy.InputField(
-        desc = "how long the symptoms have been experienced"
-    )
-
-    severity: str = dspy.InputField(
-        desc = "the severity level of the symptoms (轻微/中等/严重 or 轻/中/重)"
-    )
-
-    description: str = dspy.InputField(
-        desc = "detailed description of the symptoms"
-    )
-
-    other_relevant_info: list[str] = dspy.InputField(
-        desc = "other relevant information such as medical history, age, etc."
-    )
+    body_parts: str = dspy.InputField(desc="affected body parts")
+    duration: str = dspy.InputField(desc="symptom duration")
+    severity: str = dspy.InputField(desc="severity: 轻微/中等/严重")
+    description: str = dspy.InputField(desc="symptom description")
+    other_relevant_info: list[str] = dspy.InputField(desc="age, history, etc.")
 
     clinic_selection: str = dspy.OutputField(
-        desc = '''the selected clinic ID. Must be one of: "emergency_clinic", "surgery_clinic", "internal_clinic", "pediatric_clinic". Decision priority: 1. Pediatric (if patient is child under 14) > 2. Emergency (if severe symptoms) > 3. Surgery (if surgical intervention needed) > 4. Internal (default for mild/unclear symptoms)'''
+        desc = f'one of: {_clinic_ids_str}'
     )
 
 
-collector = dspy.ChainOfThought(
+collector = dspy.Predict(
     ClinicSelectorSignature
 )
 
@@ -76,23 +67,19 @@ def select_clinic(
 
     try:
         resp = collector(
-            # [STEP 3] 极限压缩
-            instructions="Clinic selector in a Chinese hospital. Select: pediatric_clinic (child under 14), emergency_clinic (severe), surgery_clinic (needs operation), internal_clinic (default/mild).",
             body_parts=body_parts,
             duration=duration,
             severity=severity,
             description=description,
-            other_relevant_info=other_relevant_info
+            other_relevant_info=other_relevant_info,
+            config=dict(max_tokens=32),
         )
 
         clinic_selection = resp["clinic_selection"] if isinstance(resp, dict) else getattr(resp, "clinic_selection", DEFAULT_CLINIC_ID)
         if clinic_selection not in VALID_CLINIC_IDS:
             clinic_selection = DEFAULT_CLINIC_ID
 
-        reasoning = getattr(resp, "reasoning", None)
-
-        logger.info(f"[ClinicSelector] Received symptoms: body_parts={body_parts}, duration={duration}, severity={severity}, description={description}, other_info={other_relevant_info}")
-        logger.info(f"[ClinicSelector] Reasoning: {reasoning}")
+        logger.info(f"[ClinicSelector] body_parts={body_parts}, severity={severity}, duration={duration}")
         logger.info(f"[ClinicSelector] Selected clinic: {clinic_selection}")
 
         return clinic_selection

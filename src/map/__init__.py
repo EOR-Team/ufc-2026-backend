@@ -13,7 +13,7 @@ Usage:
 """
 
 from src.map.typedef import Node, Edge, Map
-from src.map.tools import get_map, get_commands
+from src.map.tools import get_map, get_commands, get_cost
 
 
-__all__ = ["Node", "Edge", "Map", "get_map", "get_commands"]
+__all__ = ["Node", "Edge", "Map", "get_map", "get_commands", "get_cost"]

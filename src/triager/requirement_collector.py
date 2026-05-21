@@ -14,13 +14,7 @@ from src import logger
 
 
 class RequirementCollectorSignature(dspy.Signature):
-    """Collect user requirements for hospital route planning (information extraction task).
-
-    Optimization notes (2026-04-19):
-    - Based on Signature optimization experiments, minimal desc works better
-    - Information extraction tasks don't need detailed extraction rules
-    - Field names are sufficient for the model to understand what to extract
-    """
+    """Extract requirements as [{when: timing, what: action}]. List all if multiple."""
 
     requirement_from_user: str = dspy.InputField(
         desc="user requirement description"
@@ -76,8 +70,8 @@ def collect_requirement(requirement_from_user: str) -> list[dict[str, str]]:
 
     try:
         result = collector(
-            instructions = "从用户描述中提取出用户的需求，包括时间(when)和内容(what)。如果有多个需求，一一对应列出。",
             requirement_from_user=requirement_from_user,
+            config=dict(max_tokens=256),
         )
 
         requirements = _normalize_requirements_value(getattr(result, "requirements", DEFAULT_REQUIREMENTS))

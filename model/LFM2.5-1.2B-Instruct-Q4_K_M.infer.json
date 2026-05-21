@@ -1,5 +1,7 @@
 {
     "temperature": 0.1,
     "top_k": 50,
+    "max_tokens": 512,
+    "repeat_penalty": 1.1,
     "logit_bias": {}
 }

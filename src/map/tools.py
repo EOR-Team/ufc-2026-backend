@@ -187,3 +187,21 @@ def get_commands(start: str, end: str) -> list[dict[str, str | float]]:
 
     debug(f"[Map] Commands {start} → {end}: {len(actions)} actions")
     return [{"action": a, "param": p} for a, p in actions]
+
+
+def get_cost(start: str, end: str) -> int | None:
+    """
+    Get the shortest-path cost (Manhattan distance) between two nodes.
+
+    Args:
+        start: Starting node ID
+        end: Ending node ID
+
+    Returns:
+        Total cost in meters, or None if unreachable.
+    """
+    map_data = get_map()
+    path = map_data.dijkstra(start, end)
+    if path is None or len(path) < 2:
+        return None
+    return len(path) - 1
