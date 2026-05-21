@@ -58,7 +58,7 @@ class ColoredFormatter(logging.Formatter):
 
         # Add exception info if present
         if record.exc_info:
-            log_line += f"\n{self.exc_text}"
+            log_line += f"\n{self.formatException(record.exc_info)}"
 
         return log_line
 

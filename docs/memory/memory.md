@@ -3,37 +3,40 @@ name: 文档系统 Memory Bank
 category: infra-rule
 field: global
 description: 文档系统的内存存储，目的在于给AI快速投喂上下文
-date: 2026-05-03
+date: 2026-05-20
 ---
 
 # 文档系统 Memory Bank
 
 ## Part 1: Currently Working
 
-1. 工作整体方向 - `Documentation System FOR AI` 的搭建
+1. 工作整体方向 - `perf-opt` 分支：优化本地 LLM (LFM2.5-1.2B) 推理速度
 
-2. 当前具体任务 - 创建 Memory Bank 记忆系统
+2. 当前具体任务 - Phase 1 已完成，待定下一阶段任务
 
-3. 任务的作用：让 AI 快速上手整个项目，并且通过 `Context Engineering` 获得更高质量的输出
+3. 任务的作用：通过 Prompt 优化（CoT→Predict + docstring 指令 + max_tokens 限制）减少推理时间
 
 4. 任务的工作目录：
 
-- `docs/`
+- `src/triager/clinic_selector.py`、`src/triager/condition_collector.py`、`src/triager/requirement_collector.py`、`src/triager/route_patcher.py`
 
-5. 任务开始时间：`2026-05-03`
+5. 任务开始时间：`2026-05-20`
 
-6. 任务预期结束时间：`2026-05-03`
+6. 任务预期结束时间：`2026-05-21`
 
-7. 任务状态：已完成
+7. 任务状态：Phase 1 已完成
 
 ## Part 2: Context Snapshot
 
-### 当前问题
-正在优化 docs/ 的 AI 可读性，目标是将引用准确率从 60% 提升到 90%+
+### Phase 1 结果 (2026-05-21)
+- ClinicSelector: 82s → 9-15s (5-9x, CoT→Predict + docstring few-shot + config max_tokens=32)
+- ConditionCollector: CoT→Predict, pipeline ~19s
+- Pipeline 总时长 ~77-85s (未达 30s 目标)
+- 最终使用模型：LFM2.5-1.2B-Instruct-Q4_K_M（替代 Qwen3.5-0.8B）
 
-### 已尝试（失败）
-- **完整目录结构**：维护成本太高，已废弃（见 PROJECT_OVERVIEW.md 决策）
-- **动态 glob 生成**：每次都要完整扫描，性能差，已废弃
+### DSPy 3.2.1 关键发现
+- `instructions=` 直接被忽略，必须放 Signature docstring
+- `max_tokens=` 直接被忽略，必须用 `config=dict(max_tokens=N)`
 
 ### 关键约束
 - docs/ 内容会频繁变化，不适合硬编码路径
@@ -46,3 +49,12 @@ date: 2026-05-03
 
 ### 开发环境
 - [ ] 使用 pyenv 管理 Python 3.11.2
+
+### 已完成的改动
+- `src/triager/clinic_selector.py`: CoT→Predict, docstring 内嵌 few-shot, config max_tokens=32
+- `src/triager/condition_collector.py`: CoT→Predict, docstring 指令, config max_tokens=128
+- `src/triager/requirement_collector.py`: docstring 指令, config max_tokens=256
+- `src/triager/route_patcher.py`: docstring 指令, config max_tokens=256, 删除 _format_locations
+- `model/LFM2.5-1.2B-Instruct-Q4_K_M.*.json`: n_ctx=4096, chat_template.default, max_tokens=512, repeat_penalty=1.1
+- `model/Qwen3.5-0.8B-Q4_K_M.*.json`: 同上配置更新
+- `src/main.py`: 默认模型切换为 LFM2.5-1.2B

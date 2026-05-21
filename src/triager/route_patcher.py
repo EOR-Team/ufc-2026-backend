@@ -14,13 +14,6 @@ from src import logger
 from src.map import get_map
 
 
-def _get_available_locations() -> dict[str, str]:
-    """从 map.json 动态获取所有 main 节点的位置描述。"""
-    map_data = get_map()
-    info = map_data.get_main_node_info()
-    return {node_id: data["description"] for node_id, data in info.items()}
-
-
 def _get_default_route() -> list[str]:
     """从 map.json 的 main 节点中获取默认路线（按坐标排序）。"""
     map_data = get_map()
@@ -29,23 +22,8 @@ def _get_default_route() -> list[str]:
     return [n.id for n in sorted_nodes[:6]]
 
 
-def _format_locations() -> str:
-    """格式化可用位置列表供 instructions 使用"""
-    locations = _get_available_locations()
-    lines = []
-    for loc_id, desc in locations.items():
-        lines.append(f"- {loc_id}: {desc}")
-    return "\n".join(lines)
-
-
 class RoutePatcherSignature(dspy.Signature):
-    """Generate route modification patches for hospital navigation (generation task).
-
-    Optimization notes (2026-04-19):
-    - Generation task: timing keywords are essential (现在, 给医生看病前, 拿完药之后, 最后)
-    - Output format (type/previous/this/next) must be clear but can be concise
-    - Minimal desc compression while preserving generation quality
-    """
+    '''Route patcher. Insert waypoints by timing: "现在"(after start), "给医生看病前"(before clinic), "拿完药之后"(after pharmacy), "最后"(before end). Output: {"patches":[{"type":"insert"|"delete","previous":loc,"this":loc,"next":loc}]}'''
 
     destination_clinic_id: str = dspy.InputField(
         desc="target clinic ID"
@@ -143,17 +121,14 @@ def patch_route(
     if origin_route is None:
         origin_route = _get_default_route().copy()
 
-    locations_info = _format_locations()
-
-    # 创建 CoT 模块
     cot = RoutePatcherCot(RoutePatcherSignature)
 
     try:
         result = cot(
-            instructions=f"""Route patcher in a Chinese hospital. Insert locations based on: "现在"(after entrance), "给医生看病前"(before clinic), "拿完药之后"(after pharmacy), "最后"(before quit). Output JSON: {{"patches": [{{"type": "insert"|"delete", "previous": loc, "this": loc, "next": loc}}]}}.""",
             destination_clinic_id=destination_clinic_id,
             requirement_summary=requirement_summary,
-            current_route=origin_route
+            current_route=origin_route,
+            config=dict(max_tokens=256),
         )
 
         # 提取 patches

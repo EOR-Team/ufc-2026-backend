@@ -12,43 +12,38 @@ from src import logger
 
 
 class ConditionCollectorSignature(dspy.Signature):
-    """Collect user physical condition info (information extraction task).
-
-    Optimization notes (2026-04-19):
-    - Based on Signature optimization experiments, minimal desc works better
-    - Information extraction tasks don't need detailed extraction rules
-    """
+    """Extract: duration, severity, body_parts, description, other_relevant_info. Build on prior conclusions if provided."""
 
     previous_conclusions: str = dspy.InputField(
-        desc = "之前的病情分析结论（如果有的话）"
+        desc = "prior analysis conclusions, if any"
     )
 
     description_from_user: str = dspy.InputField(
-        desc="用户的症状描述"
+        desc = "user symptom description"
     )
 
     duration: str = dspy.OutputField(
-        desc="症状持续时间（中文）"
+        desc = "symptom duration"
     )
 
     severity: str = dspy.OutputField(
-        desc="症状严重程度（中文）"
+        desc = "severity level"
     )
 
     body_parts: str = dspy.OutputField(
-        desc="受影响的身体部位（中文）"
+        desc = "affected body parts"
     )
 
     description: str = dspy.OutputField(
-        desc="症状描述（中文）"
+        desc = "symptom description"
     )
 
     other_relevant_info: list[str] = dspy.OutputField(
-        desc="其他相关信息（中文）"
+        desc = "other relevant info"
     )
 
 
-collector = dspy.ChainOfThought(
+collector = dspy.Predict(
     ConditionCollectorSignature
 )
 
@@ -87,9 +82,9 @@ def collect_condition(description_from_user: str, previous_conclusions: list[str
 
     try:
         resp = collector(
-            instructions="从用户的描述中提取信息：症状持续时间、严重程度、受影响的身体部位、症状描述、其他相关信息。如果存在之前的分析，将其作为基础，并在此基础上进行补充和修正。",
             description_from_user = description_from_user,
-            previous_conclusions = previous_conclusions_str
+            previous_conclusions = previous_conclusions_str,
+            config=dict(max_tokens=128),
         )
 
         duration = _normalize_condition_value(getattr(resp, "duration", None))
@@ -98,9 +93,8 @@ def collect_condition(description_from_user: str, previous_conclusions: list[str
         description = _normalize_condition_value(getattr(resp, "description", None))
         other_relevant_info = getattr(resp, "other_relevant_info", [])
 
-        logger.info(f"[ConditionCollector] Receive user description: {description_from_user}; previous conclusions: {previous_conclusions_str}")
-        logger.info(f"[ConditionCollector] Reasoning: {resp.reasoning}")
-        logger.info(f"[ConditionCollector] Extracted condition: duration={duration}, severity={severity}, body_parts={body_parts}, description={description}, other_info={other_relevant_info}")
+        logger.info(f"[ConditionCollector] Input: {description_from_user}; prev: {previous_conclusions_str}")
+        logger.info(f"[ConditionCollector] Extracted: duration={duration}, severity={severity}, body_parts={body_parts}")
 
         return {
             "duration": duration,
