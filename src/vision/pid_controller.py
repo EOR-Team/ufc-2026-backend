@@ -13,7 +13,7 @@ from src.logger import debug
 
 # Default PID gains (tune on real hardware)
 DEFAULT_KP: Final[float] = 30.0
-DEFAULT_KI: Final[float] = 0.0
+DEFAULT_KI: Final[float] = 1.0
 DEFAULT_KD: Final[float] = 10.0
 
 # Speed limits (0-100, matching LOBOROBOT duty cycle)
@@ -38,22 +38,30 @@ class PIDController:
 
     _integral: float = field(default=0.0, init=False)
     _prev_error: float = field(default=0.0, init=False)
+    _last_deviation: float = field(default=0.0, init=False)
 
     def reset(self) -> None:
         """Reset integral and derivative state."""
         self._integral = 0.0
         self._prev_error = 0.0
 
-    def compute(self, deviation: float) -> tuple[int, int]:
+    def compute(self, deviation: float, line_detected: bool = True) -> tuple[int, int]:
         """
         Compute left and right motor speeds from line deviation.
 
         Args:
             deviation: -1.0 (line on left) to +1.0 (line on right), 0.0 = centered
+            line_detected: Whether line is currently found. If False, deviation is
+                           treated as 0 (straight) to coast until line reappears.
 
         Returns:
             (left_speed, right_speed) — values in [MIN_SPEED, MAX_SPEED]
         """
+        if line_detected:
+            self._last_deviation = deviation
+        else:
+            deviation = 0.0
+
         # PID calculation
         self._integral += deviation
         # Anti-windup: clamp integral

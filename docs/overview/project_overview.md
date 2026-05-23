@@ -121,14 +121,14 @@ AI Agent 核心模块，负责：
 
 视觉巡线导航模块，将路径指令转为实际行驶行为。核心组件：
 
-- **LineDetector**：OpenCV 黑线检测 — ROI 裁剪 → 灰度 → 自适应阈值 → 轮廓查找 → 偏差计算（-1.0~+1.0）
-- **PIDController**：偏差 → 差速转向（左/右轮速），支持抗积分饱和
-- **IntersectionDetector**：轮廓面积突变 + 水平边缘检测 → 防抖确认路口
-- **Navigator**：状态机（FOLLOW_LINE → CROSSING → TURNING → DONE），直接消费 `get_commands()` 输出
+- **LineDetector**：OpenCV 黑线检测 — ROI 裁剪（下半 60%）→ 灰度 → 高斯模糊 → 自适应阈值 → 轮廓查找 → 偏差计算（-1.0~+1.0）；`detect_upper()` 检查上半 40% 用于终点判定
+- **PIDController**：偏差 → 差速转向（Kp=30, Ki=1.0, Kd=10），支持抗积分饱和；丢线时 deviation=0 直行等待
+- **IntersectionDetector**：轮廓长宽比分类（h/w>2 竖线 + w/h>2 横线）+ 面积阈值（>30% ROI）→ 3 帧防抖确认路口
+- **Navigator**：状态机（FOLLOW_LINE → CROSSING → TURNING → DONE），消费 `get_commands()` 输出；过路口用 `car.control.forward(0.1)`，转向用 `car.control.turn(angle)`；终点检测：上半 40% 连续 3 帧无黑线 → 自动停车
 
 Mock 模式支持：
-- 摄像头不可用 → 每 100 tick 自动生成虚拟路口
-- 底盘不可用 → 仅日志记录电机指令
+- 摄像头不可用 → 强制底盘也 mock，每 100 tick 自动生成虚拟路口
+- 底盘不可用 → 仅日志记录电机指令；过路口/转向阶段 `time.sleep(2)` 模拟耗时
 
 API：`POST /vision/start_navigate`, `POST /vision/stop`, `GET /vision/status`
 

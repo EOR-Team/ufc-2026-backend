@@ -16,11 +16,12 @@ from src.logger import debug, error
 
 # Detection parameters (tunable on real hardware)
 DEFAULT_RESOLUTION = (320, 240)
-ROI_TOP_RATIO = 0.5       # ROI starts at 50% from top (only look at ground ahead)
+ROI_START_RATIO = 0.4      # ROI starts at 40% from top → bottom 60% for line following
+UPPER_RATIO = 0.4           # Upper 40% for endpoint detection
 GAUSSIAN_KERNEL = (5, 5)
 ADAPTIVE_BLOCK_SIZE = 11
 ADAPTIVE_C = 2
-MIN_CONTOUR_AREA = 100     # Minimum contour area to be considered a line
+MIN_CONTOUR_AREA = 100      # Minimum contour area to be considered a line
 
 
 class LineDetector:
@@ -62,20 +63,32 @@ class LineDetector:
         return frame
 
     def _crop_roi(self, frame: np.ndarray) -> np.ndarray:
-        """Crop frame to bottom ROI (ground area ahead of car)."""
+        """Crop frame to bottom 60% (ground area ahead of car)."""
         h = frame.shape[0]
-        top = int(h * ROI_TOP_RATIO)
+        top = int(h * ROI_START_RATIO)
         return frame[top:h, :]
+
+    def _crop_upper(self, frame: np.ndarray) -> np.ndarray:
+        """Crop frame to upper 40% for endpoint detection."""
+        h = frame.shape[0]
+        bottom = int(h * UPPER_RATIO)
+        return frame[0:bottom, :]
 
     def _preprocess(self, roi: np.ndarray) -> np.ndarray:
         """Convert to grayscale, blur, and apply adaptive threshold."""
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, GAUSSIAN_KERNEL, 0)
-        # Black line = low pixel values, invert so line becomes white
-        _, binary = cv2.threshold(blurred, 60, 255, cv2.THRESH_BINARY_INV)
+        # Black line = low pixel values → invert so line becomes white
+        binary = cv2.adaptiveThreshold(
+            blurred, 255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            ADAPTIVE_BLOCK_SIZE,
+            ADAPTIVE_C,
+        )
         return binary
 
-    def _find_line_center(self, binary: np.ndarray) -> tuple[Optional[float], bool]:
+    def _find_line_center(self, binary: np.ndarray) -> tuple[float, bool]:
         """
         Find the black line center in binary image.
 
@@ -107,7 +120,7 @@ class LineDetector:
         debug(f"[Vision] Line center: {center_x:.1f}, deviation: {deviation:.3f}")
         return deviation, True
 
-    def detect(self, frame: Optional[np.ndarray] = None) -> tuple[float, bool]:
+    def detect(self, frame: Optional[np.ndarray] = None) -> tuple[float, bool, Optional[np.ndarray]]:
         """
         Detect black line in a frame.
 
@@ -115,39 +128,45 @@ class LineDetector:
             frame: Camera frame. If None, reads from camera.
 
         Returns:
-            (deviation, detected)
+            (deviation, detected, binary)
             deviation: -1.0 (left) to +1.0 (right), 0.0 = centered
             detected: True if line found
+            binary: Preprocessed binary image (reusable for intersection detection)
         """
         if frame is None:
             frame = self.read_frame()
         if frame is None:
-            return 0.0, False
+            return 0.0, False, None
 
         roi = self._crop_roi(frame)
         binary = self._preprocess(roi)
         deviation, detected = self._find_line_center(binary)
 
-        return deviation, detected
+        return deviation, detected, binary
 
-    def detect_with_debug(self, frame: Optional[np.ndarray] = None) -> dict:
+    def detect_upper(self, frame: Optional[np.ndarray] = None) -> bool:
         """
-        Detect with full debug info for visualization.
+        Check if black line exists in the upper 40% of frame (endpoint detection).
 
-        Returns dict with: deviation, detected, roi, binary, contours
+        Args:
+            frame: Camera frame. If None, reads from camera.
+
+        Returns:
+            True if line is present in upper portion.
         """
         if frame is None:
             frame = self.read_frame()
         if frame is None:
-            return {"deviation": 0.0, "detected": False}
+            return False
 
-        roi = self._crop_roi(frame)
-        binary = self._preprocess(roi)
-        deviation, detected = self._find_line_center(binary)
+        upper = self._crop_upper(frame)
+        binary = self._preprocess(upper)
+        contours, _ = cv2.findContours(
+            binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
 
-        return {
-            "deviation": deviation,
-            "detected": detected,
-            "roi": roi,
-            "binary": binary,
-        }
+        if not contours:
+            return False
+
+        largest = max(contours, key=cv2.contourArea)
+        return cv2.contourArea(largest) >= MIN_CONTOUR_AREA

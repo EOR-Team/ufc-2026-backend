@@ -8,10 +8,13 @@ Consumes get_commands() output directly: [{action: "forward"|"turn", param: floa
 
 Mock modes:
     Camera unavailable → mock line following, auto-intersection every N ticks
-    Car unavailable → mock motor control with console logging
+    Car unavailable → mock motor control with time.sleep(2) for cross/turn phases
 
 State machine:
     FOLLOW_LINE → 检测到路口 → CROSSING（过路口）→ TURNING（转向）→ FOLLOW_LINE → ... → DONE
+    FOLLOW_LINE → 上半画面连续丢线 → DONE（到达终点）
+
+TODO: get_commands() design needs refactoring (tracked separately)
 """
 
 import time
@@ -23,18 +26,24 @@ from src.vision.line_detector import LineDetector
 from src.vision.pid_controller import PIDController
 from src.vision.intersection_detector import IntersectionDetector
 from src.car.LOBOROBOT import Robot
+from src.car.control import forward, turn, stop as car_stop
 
 
-# Calibration constants (measure on real hardware)
-INTERSECTION_FORWARD_TIME: Final[float] = 1.5   # seconds to cross intersection center
-TURN_DURATION_90: Final[float] = 1.0             # seconds for 90-degree turn
+# Calibration constants
 LINE_FOLLOW_BASE_SPEED: Final[int] = 20          # base motor speed (0-100)
-INTERSECTION_COOLDOWN: Final[float] = 2.0        # seconds to ignore after handling intersection
 TURN_SPEED: Final[int] = 30                      # motor speed for turning (0-100)
 LOG_INTERVAL: Final[int] = 30                    # log every N frames during line following
 
-# Mock mode constants
+# Intersection handling
+FORWARD_DISTANCE: Final[float] = 0.1             # meters to push through intersection
+INTERSECTION_COOLDOWN: Final[float] = 2.0        # seconds to ignore after handling intersection
+
+# Endpoint detection
+UPPER_LOSS_CONFIRM: Final[int] = 3               # consecutive frames with no line in upper portion
+
+# Mock mode
 MOCK_INTERSECTION_TICKS: Final[int] = 100        # ticks between auto-intersections in mock mode
+MOCK_PHASE_SLEEP: Final[float] = 2.0             # seconds to sleep during cross/turn in mock mode
 
 
 class NavState(Enum):
@@ -77,6 +86,10 @@ class Navigator:
         self._tick_count: int = 0               # ticks in current state
         self._start_time: float = 0.0           # navigation start timestamp
 
+        # Endpoint detection
+        self._upper_loss_count: int = 0
+        self._pending_turn_angle: float = 0.0
+
         # Mock mode flags
         self._camera_mock: bool = False
         self._car_mock: bool = not Robot.is_available
@@ -105,11 +118,9 @@ class Navigator:
         self._intersections_passed = 0
         self._intersections_target = 0
 
-        # Count intersections from consecutive forward commands
         while self._cmd_idx < len(self._commands):
             cmd = self._commands[self._cmd_idx]
             if cmd["action"] == "forward":
-                # Each 1.0 Manhattan distance = one edge = one intersection to pass
                 self._intersections_target += int(round(cmd["param"]))
                 self._cmd_idx += 1
             else:
@@ -118,36 +129,8 @@ class Navigator:
         return self._intersections_target > 0
 
     # ------------------------------------------------------------------
-    # Motor control helpers (mock-aware)
+    # Motor control (mock-aware)
     # ------------------------------------------------------------------
-
-    def _motor_forward(self, speed: int) -> None:
-        """Move all motors forward. Logs mock output if hardware unavailable."""
-        if self._car_mock:
-            info(f"[MockCar] ▲ 前进 speed={speed}")
-        else:
-            Robot._bot.t_up(speed)
-
-    def _motor_turn_left(self, speed: int) -> None:
-        """Turn left. Logs mock output if hardware unavailable."""
-        if self._car_mock:
-            info(f"[MockCar] ↺ 左转 speed={speed}")
-        else:
-            Robot._bot.turnLeft(speed)
-
-    def _motor_turn_right(self, speed: int) -> None:
-        """Turn right. Logs mock output if hardware unavailable."""
-        if self._car_mock:
-            info(f"[MockCar] ↻ 右转 speed={speed}")
-        else:
-            Robot._bot.turnRight(speed)
-
-    def _motor_stop(self) -> None:
-        """Stop all motors. Logs mock output if hardware unavailable."""
-        if self._car_mock:
-            info(f"[MockCar] ■ 停止")
-        else:
-            Robot.stop()
 
     def _set_differential_speed(self, left: int, right: int) -> None:
         """Set left/right motor speeds for differential steering."""
@@ -171,7 +154,7 @@ class Navigator:
         info(f"[Navigator] 状态={self._state.name}, 帧数={self._frame_count}, "
              f"耗时={elapsed:.1f}s, 指令进度={self._cmd_idx}/{len(self._commands)}")
         self._state = NavState.STOPPED
-        self._motor_stop()
+        car_stop()
         if not self._camera_mock:
             self._line_detector.close()
 
@@ -187,12 +170,11 @@ class Navigator:
             warning("[Navigator] No commands set")
             return
 
-        # Try to open camera; fall back to mock mode
         if not self._line_detector.open():
             warning("[Navigator] 摄像头不可用, 进入 mock 巡线模式")
             self._camera_mock = True
+            self._car_mock = True
 
-        # Prepare first forward segment
         if not self._prepare_next_forward():
             warning("[Navigator] No forward commands at start")
             if not self._camera_mock:
@@ -205,14 +187,14 @@ class Navigator:
         self._last_intersection_time = 0.0
         self._frame_count = 0
         self._tick_count = 0
+        self._upper_loss_count = 0
         self._start_time = time.time()
 
         info(f"[Navigator] ===== 启动导航 =====")
         info(f"[Navigator] 总指令数: {len(self._commands)}, 首段路口数: {self._intersections_target}")
         info(f"[Navigator] 指令序列: {self._commands}")
-        info(f"[Navigator] 标定参数: base_speed={LINE_FOLLOW_BASE_SPEED}, "
-             f"cross_time={INTERSECTION_FORWARD_TIME}s, "
-             f"turn_time={TURN_DURATION_90}s, turn_speed={TURN_SPEED}")
+        info(f"[Navigator] 参数: base_speed={LINE_FOLLOW_BASE_SPEED}, "
+             f"cross_distance={FORWARD_DISTANCE}m, turn_speed={TURN_SPEED}")
         info(f"[Navigator] 设备状态: 摄像头={'MOCK' if self._camera_mock else 'OK'}, "
              f"底盘={'MOCK' if self._car_mock else 'OK'}")
         info(f"[Navigator] ====================")
@@ -224,7 +206,7 @@ class Navigator:
             elapsed = time.time() - self._start_time
             info(f"[Navigator] 用户中断, 帧数={self._frame_count}, 耗时={elapsed:.1f}s")
         finally:
-            self._motor_stop()
+            car_stop()
             if not self._camera_mock:
                 self._line_detector.close()
 
@@ -238,7 +220,7 @@ class Navigator:
             self._tick_turning()
 
     def _tick_follow_line(self) -> None:
-        """Follow the black line, check for intersections."""
+        """Follow the black line, check for intersections and endpoint."""
         self._frame_count += 1
         self._tick_count += 1
 
@@ -249,14 +231,12 @@ class Navigator:
 
     def _tick_follow_line_mock(self) -> None:
         """Mock line following: simulate intersection every MOCK_INTERSECTION_TICKS ticks."""
-        # Simulate a centered line with no deviation
         deviation = 0.0
-        left_speed, right_speed = self._pid.compute(deviation)
+        left_speed, right_speed = self._pid.compute(deviation, line_detected=True)
         self._set_differential_speed(left_speed, right_speed)
 
-        # Auto-detect intersection at fixed tick intervals
         if self._tick_count >= MOCK_INTERSECTION_TICKS:
-            self._motor_stop()
+            car_stop()
             self._state = NavState.CROSSING
             self._intersections_passed += 1
             elapsed = time.time() - self._start_time
@@ -266,7 +246,6 @@ class Navigator:
                  f"已运行: {elapsed:.1f}s")
             self._tick_count = 0
 
-        # Periodic log
         if self._frame_count % LOG_INTERVAL == 0:
             elapsed = time.time() - self._start_time
             debug(f"[Navigator] [Mock巡线] frame={self._frame_count} "
@@ -276,25 +255,38 @@ class Navigator:
                   f"耗时={elapsed:.1f}s")
 
     def _tick_follow_line_real(self) -> None:
-        """Real camera line following with intersection detection."""
+        """Real camera line following with intersection and endpoint detection."""
         frame = self._line_detector.read_frame()
         if frame is None:
             return
 
-        deviation, line_detected = self._line_detector.detect(frame)
+        deviation, detected, binary = self._line_detector.detect(frame)
+        if binary is None:
+            return
 
-        # Preprocess for intersection detector
-        roi = self._line_detector._crop_roi(frame)
-        binary = self._line_detector._preprocess(roi)
+        # Endpoint detection: upper 40% loses line → destination reached
+        line_in_upper = self._line_detector.detect_upper(frame)
+        if not line_in_upper:
+            self._upper_loss_count += 1
+            if self._upper_loss_count >= UPPER_LOSS_CONFIRM:
+                car_stop()
+                self._state = NavState.DONE
+                elapsed = time.time() - self._start_time
+                info(f"[Navigator] >>> 检测到终点! (上半画面连续{self._upper_loss_count}帧无黑线)")
+                info(f"[Navigator] ===== 导航完成 =====")
+                info(f"[Navigator] 总帧数: {self._frame_count}, 总耗时: {elapsed:.1f}s")
+                return
+        else:
+            self._upper_loss_count = 0
 
-        # Check for intersection (with cooldown)
+        # Intersection detection (with cooldown)
         now = time.time()
         if now - self._last_intersection_time > INTERSECTION_COOLDOWN:
             at_intersection = self._intersection_detector.detect(
-                binary, deviation, line_detected
+                binary, deviation, detected
             )
             if at_intersection:
-                self._motor_stop()
+                car_stop()
                 self._state = NavState.CROSSING
                 self._intersections_passed += 1
                 elapsed = now - self._start_time
@@ -306,14 +298,13 @@ class Navigator:
                 return
 
         # PID line following
-        left_speed, right_speed = self._pid.compute(deviation)
+        left_speed, right_speed = self._pid.compute(deviation, detected)
         self._set_differential_speed(left_speed, right_speed)
 
-        # Periodic runtime log
         if self._frame_count % LOG_INTERVAL == 0:
             elapsed = now - self._start_time
             debug(f"[Navigator] [巡线] frame={self._frame_count} "
-                  f"偏差={deviation:+.3f} 检线={'Y' if line_detected else 'N'} "
+                  f"偏差={deviation:+.3f} 检线={'Y' if detected else 'N'} "
                   f"电机L={left_speed} R={right_speed} "
                   f"路口={self._intersections_passed}/{self._intersections_target} "
                   f"指令={self._cmd_idx}/{len(self._commands)} "
@@ -321,22 +312,19 @@ class Navigator:
 
     def _tick_crossing(self) -> None:
         """
-        Cross through intersection with fixed forward movement.
-        Then decide: more intersections in this segment → continue,
-        or next command is a turn → execute turn, or done.
+        Cross through intersection with calibrated forward movement.
+        Then decide: more intersections → continue, next command is turn → execute, or done.
         """
-        info(f"[Navigator] [过路口] 直行 {INTERSECTION_FORWARD_TIME}s, "
-             f"速度={LINE_FOLLOW_BASE_SPEED}")
+        info(f"[Navigator] [过路口] 直行 {FORWARD_DISTANCE}m")
 
-        # Move forward to cross intersection center
-        self._motor_forward(LINE_FOLLOW_BASE_SPEED)
-        time.sleep(INTERSECTION_FORWARD_TIME)
-        self._motor_stop()
+        forward(FORWARD_DISTANCE)
+        if self._car_mock:
+            time.sleep(MOCK_PHASE_SLEEP)
+
         self._last_intersection_time = time.time()
 
-        # Check if we've passed enough intersections for current forward segment
+        # Check if more intersections to pass in this segment
         if self._intersections_passed < self._intersections_target:
-            # More intersections to pass in this segment
             info(f"[Navigator] [过路口] 还需经过 {self._intersections_target - self._intersections_passed} 个路口")
             self._intersection_detector.reset()
             self._pid.reset()
@@ -344,18 +332,16 @@ class Navigator:
             self._tick_count = 0
             return
 
-        # Forward segment complete — look for next turn command
+        # Forward segment complete — look for next turn
         turn_angle = self._get_next_turn()
 
         if turn_angle is None:
-            # No more commands — done
             self._state = NavState.DONE
             elapsed = time.time() - self._start_time
             info(f"[Navigator] ===== 导航完成 =====")
             info(f"[Navigator] 总帧数: {self._frame_count}, 总耗时: {elapsed:.1f}s")
             return
 
-        # Execute turn
         self._pending_turn_angle = turn_angle
         self._state = NavState.TURNING
         info(f"[Navigator] [过路口] 段完成, 准备转向: {turn_angle}°")
@@ -373,31 +359,27 @@ class Navigator:
                 self._cmd_idx += 1
                 return cmd["param"]
             elif cmd["action"] == "forward":
-                # Next forward segment — prepare it and return None (no turn needed yet)
                 self._prepare_next_forward()
                 return None
         return None
 
     def _tick_turning(self) -> None:
-        """Execute a fixed-angle turn at intersection."""
+        """Execute a calibrated-angle turn at intersection."""
         angle = self._pending_turn_angle
-        duration = abs(angle) / 90.0 * TURN_DURATION_90
 
         if angle > 0:
-            self._motor_turn_right(TURN_SPEED)
             direction = "right"
         elif angle < 0:
-            self._motor_turn_left(TURN_SPEED)
             direction = "left"
         else:
             direction = "forward"
 
-        info(f"[Navigator] [转向] {direction} {abs(angle)}°, "
-             f"速度={TURN_SPEED}, 时长={duration:.2f}s")
+        info(f"[Navigator] [转向] {direction} {abs(angle)}°")
 
-        # Turn for duration proportional to angle
-        time.sleep(duration)
-        self._motor_stop()
+        turn(angle)
+        if self._car_mock:
+            time.sleep(MOCK_PHASE_SLEEP)
+
         self._last_intersection_time = time.time()
 
         # After turn, prepare next forward segment

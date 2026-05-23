@@ -32,7 +32,7 @@ def draw_overlay(
     display = frame.copy()
 
     # 画 ROI 区域边界
-    roi_top = int(h * 0.5)
+    roi_top = int(h * 0.4)
     cv2.rectangle(display, (0, roi_top), (w, h), (0, 255, 0), 2)
 
     # 偏差指示条
@@ -100,17 +100,18 @@ def main():
                 continue
 
             # 黑线检测
-            roi = detector._crop_roi(frame)
-            binary = detector._preprocess(roi)
-            deviation, line_detected = detector._find_line_center(binary)
+            deviation, line_detected, binary = detector.detect(frame)
+            if binary is None:
+                continue
 
             # 路口检测
             at_intersection = inter_detector.detect(binary, deviation, line_detected)
 
             # PID 计算
-            left_speed, right_speed = pid.compute(deviation) if line_detected else (0, 0)
+            left_speed, right_speed = pid.compute(deviation, line_detected)
 
             # 绘制叠加层
+            roi = detector._crop_roi(frame)
             display = draw_overlay(
                 frame, roi, binary,
                 deviation, line_detected, at_intersection,

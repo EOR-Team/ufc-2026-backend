@@ -12,28 +12,33 @@ date: 2026-05-23
 
 1. 工作整体方向 - `navigation` 分支：基于视觉的巡线导航系统
 
-2. 当前具体任务 - 调试/优化巡线、路口检测与 PID 参数
+2. 当前具体任务 - Vision 巡线导航模块重构已完成（2026-05-23），后续待实车标定
 
-3. 任务的作用：确保小车能准确沿黑线行驶、识别路口、完成路径规划中的转向
+3. 任务的作用：重构后的巡线系统使用轮廓长宽比路口检测、自适应阈值二值化、标定物理接口过路口/转向、终点检测自动停车
 
 4. 任务的工作目录：
 
-- `src/vision/navigator.py`、`src/vision/line_detector.py`、`src/vision/pid_controller.py`、`src/vision/intersection_detector.py`、`src/vision/routes.py`
+- `src/vision/navigator.py`（362 行）、`src/vision/line_detector.py`（144 行）、`src/vision/pid_controller.py`（88 行）、`src/vision/intersection_detector.py`（88 行）、`src/vision/routes.py`、`src/car/control.py`
 
 5. 任务开始时间：`2026-05-23`
 
 6. 任务预期结束时间：`2026-05-30`
 
-7. 任务状态：正在进行
+7. 任务状态：代码重构已完成，待实车标定验证
 
 ## Part 2: Context Snapshot
 
-### Navigation 分支 (2026-05-23)
-- Vision 巡线导航系统已实现：LineDetector (OpenCV 黑线检测) → PIDController (差速转向) → IntersectionDetector (路口识别) → Navigator (状态机)
+### Navigation 分支 (2026-05-23 重构完成)
+- Vision 巡线导航系统已重构：LineDetector (自适应阈值 + 终点检测) → PIDController (Ki=1.0) → IntersectionDetector (轮廓长宽比分类 + 30% 面积阈值) → Navigator (状态机 + car/control.py 标定接口)
+- 路口检测: 竖线(h/w>2) + 横线(w/h>2) 同时存在 + 总面积 > ROI 30% → 3帧防抖确认
+- 过路口: `car.control.forward(0.1)` 前进 0.1m（基于 V_FORWARD=0.215 m/s 标定）
+- 转向: `car.control.turn(±90)`（基于 V_ROTATE=96.0 deg/s 标定）
+- 终点检测: 上半 40% 连续 3 帧无黑线 → 自动 DONE
 - 状态机: FOLLOW_LINE → CROSSING → TURNING → ... → DONE
-- Mock 模式: 摄像头不可用时自动模拟巡线（每 100 tick 生成虚拟路口），底盘不可用时仅记录日志
+- Mock 模式: 摄像头不可用时强制底盘 mock，每 100 tick 生成虚拟路口；过路口/转向 mock 阶段 time.sleep(2)
 - Navigator 直接消费 `get_commands()` 输出: `[{action: "forward"|"turn", param: float}]`
-- API: `POST /vision/start_navigate`, `POST /vision/stop`, `GET /vision/status`
+- 运动控制分离: 巡线差速保留直接电机控制，过路口/转向走 car/control.py 标定接口
+- TODO: get_commands() 设计重构
 - smbus2 替代 smbus，解决 I2C 兼容性
 
 ### Phase 1 结果 (2026-05-21) — 历史参考
