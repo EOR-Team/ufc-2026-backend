@@ -55,6 +55,7 @@ date: 2026-05-23
 | 文件 | category | 核心要点 |
 |------|----------|------|
 | [rule/TDD.md](./rule/TDD.md) | `guide` | 铁律：没有失败测试 = 没有生产代码；5 阶段循环：RED → VERIFY RED → GREEN → VERIFY GREEN → REFACTOR；80%+ 覆盖率要求；测试命名规范（动词+场景+预期）；AAA 结构（Arrange-Act-Assert） |
+| [rule/calibration_runbook.md](./rule/calibration_runbook.md) | `guide` | Vision 巡线导航标定操作手册：7 步标定流程、脚本用法、参数对照、数据分析反馈模板 |
 
 ---
 
@@ -74,6 +75,7 @@ date: 2026-05-23
 | [changelog/010_stt_deployment.md](./changelog/010_stt_deployment.md) | `adr` | STT 部署方案 |
 | [changelog/011_map_runtime_graph.md](./changelog/011_map_runtime_graph.md) | `adr` | Map 模块运行时图构建重构，消除 car/map 循环依赖 |
 | [changelog/012_vision_navigation.md](./changelog/012_vision_navigation.md) | `adr` | Vision 视觉巡线导航系统设计：PID + 路口检测 + 状态机 + Mock 双模式 |
+| [changelog/013_calibration_workflow.md](./changelog/013_calibration_workflow.md) | `adr` | Vision 标定工作流设计：三脚本 + Claude Code 数据分析闭环 |
 
 ---
 
@@ -118,4 +120,5 @@ date: 2026-05-23
 | 安全红线 | [rule/SECURITY.md](./rule/SECURITY.md) |
 | TDD 循环流程 | [rule/TDD.md](./rule/TDD.md) |
 | 架构决策记录 | [changelog/](./changelog/) |
+| Vision 标定流程 | [rule/calibration_runbook.md](./rule/calibration_runbook.md) |
 | 故障排查 | [archive/troubleshooting/](./archive/troubleshooting/) |

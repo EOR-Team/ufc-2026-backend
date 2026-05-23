@@ -39,6 +39,7 @@ date: 2026-05-23
 - Navigator 直接消费 `get_commands()` 输出: `[{action: "forward"|"turn", param: float}]`
 - 运动控制分离: 巡线差速保留直接电机控制，过路口/转向走 car/control.py 标定接口
 - TODO: get_commands() 设计重构
+- 标定工作流已设计（ADR-013），三脚本 + Claude Code 数据分析闭环，详见 docs/rule/calibration_runbook.md
 - smbus2 替代 smbus，解决 I2C 兼容性
 
 ### Phase 1 结果 (2026-05-21) — 历史参考
