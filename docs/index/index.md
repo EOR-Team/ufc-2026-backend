@@ -3,7 +3,7 @@ name: 文档索引
 category: infra-rule
 field: global
 description: 快速索引 docs/ 中的各类规则文档
-date: 2026-05-20
+date: 2026-05-23
 ---
 
 # 文档索引
@@ -73,6 +73,7 @@ date: 2026-05-20
 | [changelog/009_model_troubleshooting.md](./changelog/009_model_troubleshooting.md) | `adr` | 模型问题排查记录 |
 | [changelog/010_stt_deployment.md](./changelog/010_stt_deployment.md) | `adr` | STT 部署方案 |
 | [changelog/011_map_runtime_graph.md](./changelog/011_map_runtime_graph.md) | `adr` | Map 模块运行时图构建重构，消除 car/map 循环依赖 |
+| [changelog/012_vision_navigation.md](./changelog/012_vision_navigation.md) | `adr` | Vision 视觉巡线导航系统设计：PID + 路口检测 + 状态机 + Mock 双模式 |
 
 ---
 
